@@ -1314,7 +1314,8 @@ async function refreshUploadStatusDisplay() {
             const chip = document.createElement('span');
             chip.className = 'status-chip loaded';
             chip.style.margin = '2px';
-            chip.textContent = folder;
+            const label = folder === '' ? 'Default (v1)' : folder.startsWith('_v') ? `Upload ${folder.replace('_v', 'v')}` : folder;
+            chip.textContent = label;
             locatorsContainer.appendChild(chip);
         });
     } else {
@@ -1410,9 +1411,14 @@ async function handleMhtmlFilesSelected(e) {
             const parser = new MHTMLArchiveBrowser();
             const parsed = await parser.parse(arrayBuffer, file.name);
             
+            const uniqueName = await findUniqueFilename(file.name);
+            if (uniqueName !== file.name) {
+                logToModalConsole(`Duplicate detected: "${file.name}" already exists. Saving as "${uniqueName}".`, 'info');
+            }
+            
             // Save metadata
             await dbHelper.saveMhtmlMeta({
-                filename: file.name,
+                filename: uniqueName,
                 mainLocation: parsed.mainLocation,
                 locationMappings: parsed.locationMappings
             });
@@ -1420,8 +1426,8 @@ async function handleMhtmlFilesSelected(e) {
             // Save resources
             for (const res of parsed.resources) {
                 await dbHelper.saveResource({
-                    id: `${file.name}||${res.path}`,
-                    filename: file.name,
+                    id: `${uniqueName}||${res.path}`,
+                    filename: uniqueName,
                     path: res.path,
                     contentType: res.contentType,
                     blob: res.blob
@@ -1429,7 +1435,7 @@ async function handleMhtmlFilesSelected(e) {
             }
             
             successCount++;
-            logToModalConsole(`Success: ${file.name} imported.`, 'success');
+            logToModalConsole(`Success: ${uniqueName} imported.`, 'success');
         } catch (err) {
             logToModalConsole(`Error processing MHTML file ${file.name}: ${err.message}`, 'error');
             console.error(err);
@@ -1456,13 +1462,55 @@ async function handleJsonFileSelected(e) {
             throw new Error("Invalid locator.json: 'pages' key is missing.");
         }
         
-        // Save under root locators key (default)
-        await dbHelper.setConfig('locators||', json);
-        logToModalConsole(`Success: locator.json configuration imported.`, 'success');
+        const locatorKey = await findUniqueLocatorKey();
+        const folderName = locatorKey.split('||')[1] || 'root';
+        if (locatorKey !== 'locators||') {
+            logToModalConsole(`Duplicate locator config detected. Saving as folder: "${folderName}".`, 'info');
+        }
+        
+        await dbHelper.setConfig(locatorKey, json);
+        logToModalConsole(`Success: locator.json configuration imported (folder: ${folderName}).`, 'success');
         refreshUploadStatusDisplay();
     } catch (err) {
         logToModalConsole(`Error processing locator JSON: ${err.message}`, 'error');
         console.error(err);
+    }
+}
+
+/**
+ * Finds a unique filename by appending _v2, _v3, etc. if the original already exists.
+ */
+async function findUniqueFilename(originalName) {
+    const existingMeta = await dbHelper.getMhtmlMeta(originalName);
+    if (!existingMeta) return originalName;
+
+    const dotIdx = originalName.lastIndexOf('.');
+    const baseName = dotIdx > 0 ? originalName.substring(0, dotIdx) : originalName;
+    const ext = dotIdx > 0 ? originalName.substring(dotIdx) : '';
+
+    let version = 2;
+    while (true) {
+        const candidate = `${baseName}_v${version}${ext}`;
+        const meta = await dbHelper.getMhtmlMeta(candidate);
+        if (!meta) return candidate;
+        version++;
+    }
+}
+
+/**
+ * Finds the next available locator config key with version suffix if needed.
+ */
+async function findUniqueLocatorKey() {
+    const rootKey = 'locators||';
+    const existing = await dbHelper.getConfig(rootKey);
+    if (!existing) return rootKey;
+
+    let version = 2;
+    while (true) {
+        const candidate = `locators||_v${version}`;
+        const data = await dbHelper.getConfig(candidate);
+        if (!data) return candidate;
+        version++;
     }
 }
 
@@ -1542,13 +1590,12 @@ async function enterMappingMode() {
     const modalBox = document.getElementById('upload-modal-box');
     modalBox.classList.add('wide-modal');
     
-    // Scan IndexedDB for active folder
+    // Scan IndexedDB for locator config keys and pick the latest version
     const db = await dbHelper.init();
     const tx = db.transaction('config', 'readonly');
     const store = tx.objectStore('config');
     
-    let activeFolder = '';
-    let locatorsData = null;
+    let locatorKeys = [];
     
     await new Promise((resolve) => {
         store.openKeyCursor().onsuccess = (e) => {
@@ -1556,20 +1603,30 @@ async function enterMappingMode() {
             if (cursor) {
                 const key = cursor.key;
                 if (key.startsWith('locators||')) {
-                    activeFolder = key.split('||')[1] || '';
-                    resolve();
-                } else {
-                    cursor.continue();
+                    locatorKeys.push(key);
                 }
+                cursor.continue();
             } else {
                 resolve();
             }
         };
     });
     
-    if (activeFolder !== undefined) {
-        locatorsData = await dbHelper.getConfig(`locators||${activeFolder}`);
+    if (locatorKeys.length === 0) {
+        alert("No locator.json config found. Please upload test files first.");
+        exitMappingMode();
+        return;
     }
+    
+    // Pick the latest key (highest version number)
+    const latestKey = locatorKeys.sort((a, b) => {
+        const vA = a.split('_v')[1] || '0';
+        const vB = b.split('_v')[1] || '0';
+        return parseInt(vB) - parseInt(vA);
+    })[0];
+    
+    const activeFolder = latestKey.split('||')[1] || 'root';
+    const locatorsData = await dbHelper.getConfig(latestKey);
     
     if (!locatorsData) {
         alert("No locator.json config found. Please upload test files first.");
@@ -1814,20 +1871,19 @@ async function saveMappingConfig() {
         }
     });
     
+    const folderLabel = mappingState.folder === '' ? 'Default Test Group' :
+        mappingState.folder.startsWith('_v') ? `Test Group ${mappingState.folder.replace('_v', 'v')}` :
+        mappingState.folder;
+    
     const newGroup = {
-        name: mappingState.folder || "Default Test Group",
+        name: folderLabel,
         folder: mappingState.folder,
         active: true,
         mappings: mappings
     };
     
     let testGroups = mapperConfig.test_groups || [];
-    const idx = testGroups.findIndex(g => g.folder === mappingState.folder);
-    if (idx !== -1) {
-        testGroups[idx] = newGroup;
-    } else {
-        testGroups.push(newGroup);
-    }
+    testGroups.push(newGroup);
     
     const newMapperConfig = {
         test_groups: testGroups
