@@ -9,6 +9,7 @@ let isInspectMode = false;
 let currentHoveredElement = null;
 let matchedDomElementsSet = new Set();
 let filteredIndices = [];
+let selectedElements = new Set();
 
 // Zoom State
 let isAutoFit = true;
@@ -47,6 +48,11 @@ window.addEventListener('load', async () => {
         const uploadModal = document.getElementById('upload-modal');
         if (e.target === uploadModal) {
             closeUploadModal();
+        }
+        
+        const confirmModal = document.getElementById('confirm-remove-modal');
+        if (e.target === confirmModal) {
+            closeConfirmRemoveModal();
         }
     });
 });
@@ -219,26 +225,52 @@ function onGroupChanged() {
     onStepChanged();
 }
 
-async function deleteSelectedGroup() {
+let pendingDeleteGroup = null;
+
+function confirmDeleteGroup() {
     const groupSelect = document.getElementById('group-select');
     const activeGroups = (mapperConfig.test_groups || []).filter(g => g.active !== false);
     const groupIdx = parseInt(groupSelect.value);
-    
+
     if (isNaN(groupIdx) || groupIdx < 0 || groupIdx >= activeGroups.length) return;
-    
-    const group = activeGroups[groupIdx];
-    if (!confirm(`Delete group "${group.name}"?\n\nThis will remove the group mapping, locator config, and batch associations. MHTML archive files will NOT be deleted.`)) return;
-    
-    // Remove the group from test_groups (find in full array, not filtered)
+
+    pendingDeleteGroup = activeGroups[groupIdx];
+
+    document.getElementById('confirm-delete-group-desc').textContent =
+        `Are you sure you want to delete "${pendingDeleteGroup.name}"? This action cannot be undone.`;
+    document.getElementById('confirm-delete-group-name').textContent =
+        `Group: ${pendingDeleteGroup.name}`;
+
+    const details = [
+        'Group mapping will be removed',
+        'Locator configuration will be deleted',
+        'Batch associations will be removed',
+        'MHTML archive files will be deleted'
+    ];
+    document.getElementById('confirm-delete-group-details').innerHTML = details.map(d =>
+        `<div class="confirm-list-item">${escapeHtml(d)}</div>`
+    ).join('');
+
+    document.getElementById('confirm-delete-group-modal').style.display = 'flex';
+}
+
+function closeConfirmDeleteGroupModal() {
+    document.getElementById('confirm-delete-group-modal').style.display = 'none';
+    pendingDeleteGroup = null;
+}
+
+async function executeDeleteGroup() {
+    if (!pendingDeleteGroup) return;
+
+    const group = pendingDeleteGroup;
+
     const fullIdx = mapperConfig.test_groups.findIndex(g => g.folder === group.folder);
     if (fullIdx !== -1) {
         mapperConfig.test_groups.splice(fullIdx, 1);
     }
-    
-    // Save updated mapper config
+
     await dbHelper.setConfig('mapper', mapperConfig);
-    
-    // Clean up locator config and batch associations for this folder
+
     if (group.folder) {
         await dbHelper.deleteConfig(`locators||${group.folder}`);
         await dbHelper.deleteConfig(`mhtml_batch||${group.folder}`);
@@ -246,7 +278,21 @@ async function deleteSelectedGroup() {
         await dbHelper.deleteConfig('locators||');
         await dbHelper.deleteConfig('mhtml_batch');
     }
-    
+
+    // Delete MHTML files referenced by this group's mappings
+    if (group.mappings && Array.isArray(group.mappings)) {
+        for (const mapping of group.mappings) {
+            if (mapping.mhtml_file) {
+                try {
+                    await dbHelper.deleteMhtmlFile(mapping.mhtml_file);
+                } catch (err) {
+                    console.warn(`Failed to delete MHTML file "${mapping.mhtml_file}":`, err);
+                }
+            }
+        }
+    }
+
+    closeConfirmDeleteGroupModal();
     populateGroupsDropdown();
     await initApp();
 }
@@ -356,6 +402,7 @@ async function onStepChanged() {
         document.getElementById('filter-type').value = '';
         document.getElementById('filter-mode').value = '';
         document.getElementById('filter-status').value = '';
+        selectedElements.clear();
         
         populateFiltersDropdowns();
         updateStatsPanel();
@@ -438,6 +485,7 @@ function setupKeyboardShortcuts() {
         } else if (e.key === 'Escape') {
             closeDetailsModal();
             closeUploadModal();
+            closeConfirmRemoveModal();
             e.preventDefault();
         }
     });
@@ -530,6 +578,8 @@ function renderElementsList() {
     if (currentPageIndex < 0 || !locatorsConfig.pages || locatorsConfig.pages.length === 0) {
         const summary = document.getElementById('filter-results-summary');
         if (summary) summary.style.display = 'none';
+        const toolbar = document.getElementById('bulk-actions-toolbar');
+        if (toolbar) toolbar.style.display = 'none';
         return;
     }
     
@@ -594,6 +644,22 @@ function renderElementsList() {
         summary.textContent = `Showing ${filteredIndices.length} of ${elements.length} elements`;
     }
     
+    // Show/hide bulk actions toolbar
+    const toolbar = document.getElementById('bulk-actions-toolbar');
+    if (toolbar) {
+        toolbar.style.display = filteredIndices.length > 0 ? 'flex' : 'none';
+    }
+
+    // Sync select-all button state
+    const selectAllBtn = document.getElementById('btn-select-all');
+    if (selectAllBtn) {
+        const allFilteredSelected = filteredIndices.length > 0 && filteredIndices.every(idx => selectedElements.has(idx));
+        const someSelected = filteredIndices.some(idx => selectedElements.has(idx));
+        selectAllBtn.classList.toggle('active', allFilteredSelected);
+        selectAllBtn.classList.toggle('indeterminate', !allFilteredSelected && someSelected);
+        selectAllBtn.textContent = allFilteredSelected ? 'Deselect All' : 'Select All';
+    }
+
     if (filteredIndices.length === 0) {
         list.innerHTML = `
             <div class="placeholder-view">
@@ -604,6 +670,7 @@ function renderElementsList() {
         clearHighlightsInIframe();
         currentElementIndex = -1;
         updateFloatNavButtons();
+        updateRemoveButtonState();
         return;
     }
     
@@ -644,7 +711,11 @@ function renderElementsList() {
         item.id = `el-item-${idx}`;
         item.onclick = () => selectElement(idx, false);
         
+        const isSelected = selectedElements.has(idx);
         item.innerHTML = `
+            <div class="el-select" onclick="event.stopPropagation();">
+                <input type="checkbox" class="el-checkbox" ${isSelected ? 'checked' : ''} onchange="toggleElementSelection(${idx}, this.checked)">
+            </div>
             <div class="el-info">
                 <span class="el-name" title="${el.name}">${idx + 1}. ${el.name}</span>
                 <span class="el-type">${el.type || 'element'} <span class="status-badge ${badgeClass}">${badgeText}</span></span>
@@ -672,6 +743,8 @@ function renderElementsList() {
             selectElement(currentElementIndex);
         }
     }
+    
+    updateRemoveButtonState();
 }
 
 function filterElementsList() {
@@ -1484,8 +1557,7 @@ async function handleMhtmlFilesSelected(e) {
     
     // Save this batch so mapping mode only shows these files
     if (batchNames.length > 0) {
-        const prev = await dbHelper.getConfig('mhtml_batch') || [];
-        await dbHelper.setConfig('mhtml_batch', [...prev, ...batchNames]);
+        await dbHelper.setConfig('mhtml_batch', batchNames);
     }
     
     refreshUploadStatusDisplay();
@@ -1505,14 +1577,12 @@ async function handleJsonFileSelected(e) {
         const json = JSON.parse(text);
         
         if (!json.pages) {
-            throw new Error("Invalid locator.json: 'pages' key is missing.");
+            throw new Error("Invalid JSON config: 'pages' key is missing.");
         }
         
         const locatorKey = await findUniqueLocatorKey();
         const folderName = locatorKey.split('||')[1] || 'root';
-        if (locatorKey !== 'locators||') {
-            logToModalConsole(`Duplicate locator config detected. Saving as folder: "${folderName}".`, 'info');
-        }
+        logToModalConsole(`Saving as folder: "${folderName}".`, 'info');
         
         await dbHelper.setConfig(locatorKey, json);
         
@@ -1522,7 +1592,7 @@ async function handleJsonFileSelected(e) {
             await dbHelper.setConfig(`mhtml_batch||${folderName}`, currentBatch);
         }
         
-        logToModalConsole(`Success: locator.json configuration imported (folder: ${folderName}).`, 'success');
+        logToModalConsole(`Success: JSON config imported (folder: ${folderName}).`, 'success');
         refreshUploadStatusDisplay();
     } catch (err) {
         logToModalConsole(`Error processing locator JSON: ${err.message}`, 'error');
@@ -1551,20 +1621,15 @@ async function findUniqueFilename(originalName) {
 }
 
 /**
- * Finds the next available locator config key with version suffix if needed.
+ * Generates a unique locator config key using a timestamp.
  */
 async function findUniqueLocatorKey() {
-    const rootKey = 'locators||';
-    const existing = await dbHelper.getConfig(rootKey);
-    if (!existing) return rootKey;
-
-    let version = 2;
-    while (true) {
-        const candidate = `locators||_v${version}`;
-        const data = await dbHelper.getConfig(candidate);
-        if (!data) return candidate;
-        version++;
-    }
+    const now = new Date();
+    const pad = (n) => String(n).padStart(2, '0');
+    const timestamp = `${now.getFullYear()}${pad(now.getMonth() + 1)}${pad(now.getDate())}_${pad(now.getHours())}${pad(now.getMinutes())}${pad(now.getSeconds())}`;
+    const folderName = `_${timestamp}`;
+    const key = `locators||${folderName}`;
+    return key;
 }
 
 function readFileAsText(file) {
@@ -1643,7 +1708,7 @@ async function enterMappingMode() {
     const modalBox = document.getElementById('upload-modal-box');
     modalBox.classList.add('wide-modal');
     
-    // Scan IndexedDB for locator config keys and pick the latest version
+    // Scan IndexedDB for locator config keys and pick the latest
     const db = await dbHelper.init();
     const tx = db.transaction('config', 'readonly');
     const store = tx.objectStore('config');
@@ -1666,30 +1731,65 @@ async function enterMappingMode() {
     });
     
     if (locatorKeys.length === 0) {
-        alert("No locator.json config found. Please upload test files first.");
+        alert("No JSON config found. Please upload a JSON config file first.");
         exitMappingMode();
         return;
     }
     
-    // Pick the latest key (highest version number)
+    // Pick the latest key (most recent timestamp)
     const latestKey = locatorKeys.sort((a, b) => {
-        const vA = a.split('_v')[1] || '0';
-        const vB = b.split('_v')[1] || '0';
-        return parseInt(vB) - parseInt(vA);
+        const tsA = a.split('||')[1] || '';
+        const tsB = b.split('||')[1] || '';
+        return tsB.localeCompare(tsA);
     })[0];
     
     const activeFolder = latestKey.split('||')[1] || 'root';
     const locatorsData = await dbHelper.getConfig(latestKey);
     
     if (!locatorsData) {
-        alert("No locator.json config found. Please upload test files first.");
+        alert("No JSON config found. Please upload a JSON config file first.");
         exitMappingMode();
         return;
     }
     
-    const mhtmlList = (await dbHelper.getConfig(`mhtml_batch||${activeFolder}`))
-        || (await dbHelper.getConfig('mhtml_batch'))
-        || await dbHelper.getAllMhtmlFiles();
+    let mhtmlList = await dbHelper.getConfig(`mhtml_batch||${activeFolder}`);
+    const currentBatch = await dbHelper.getConfig('mhtml_batch') || [];
+    
+    if (mhtmlList) {
+        // Replace any stale entries: if a file in currentBatch has a _v{N} suffix
+        // that corresponds to an original name in mhtmlList, swap them.
+        const staleNames = [];
+        const updatedList = [...mhtmlList];
+        
+        for (const currentFile of currentBatch) {
+            const baseMatch = currentFile.match(/^(.+)_v(\d+)(\.mhtml)$/i);
+            if (baseMatch) {
+                const baseName = baseMatch[1] + baseMatch[3];
+                const idx = updatedList.indexOf(baseName);
+                if (idx !== -1) {
+                    staleNames.push(baseName);
+                    updatedList[idx] = currentFile;
+                }
+            }
+        }
+        
+        // Add any genuinely new files not in the list
+        const finalSet = new Set(updatedList);
+        for (const f of currentBatch) {
+            if (!finalSet.has(f)) {
+                updatedList.push(f);
+            }
+        }
+        
+        mhtmlList = updatedList;
+        await dbHelper.setConfig(`mhtml_batch||${activeFolder}`, mhtmlList);
+    } else {
+        // No association yet — use current batch and create the association.
+        mhtmlList = currentBatch;
+        if (mhtmlList.length > 0) {
+            await dbHelper.setConfig(`mhtml_batch||${activeFolder}`, mhtmlList);
+        }
+    }
     
     // Map existing paired steps if mapper configuration exists
     mappingState = {
@@ -1735,7 +1835,33 @@ function renderMappingInterface() {
     pagesList.innerHTML = '';
     mhtmlList.innerHTML = '';
     
-    // Render Pages Targets (Left Side)
+    // Render MHTML Files (Left Side - Draggables)
+    const mappedFiles = new Set(mappingState.pages.map(p => p.mappedMhtml).filter(Boolean));
+    const unmappedMhtml = mappingState.mhtmlFiles.filter(f => !mappedFiles.has(f));
+    
+    if (unmappedMhtml.length > 0) {
+        unmappedMhtml.forEach(filename => {
+            const badge = document.createElement('div');
+            badge.className = 'draggable-mhtml-badge';
+            badge.setAttribute('draggable', 'true');
+            badge.id = `mhtml-badge-${filename}`;
+            
+            badge.addEventListener('dragstart', (e) => handleMhtmlDragStart(e, filename));
+            
+            badge.innerHTML = `
+                <span class="drag-handle">☰</span>
+                <input type="text" class="mhtml-rename-input" value="${escapeHtml(filename)}" 
+                    onchange="renameMhtmlFile('${escapeJs(filename)}', this.value)" 
+                    style="flex: 1; padding: 3px 6px; font-size: 0.7rem; border-radius: 3px; border: 1px solid var(--border-glass); background: transparent;"
+                    title="Rename MHTML file">
+            `;
+            mhtmlList.appendChild(badge);
+        });
+    } else {
+        mhtmlList.innerHTML = '<div style="font-size: 0.7rem; color: var(--text-muted); text-align: center; padding: 16px 0;">All MHTML files mapped</div>';
+    }
+
+    // Render Pages Targets (Right Side - Drop Targets)
     mappingState.pages.forEach((p, idx) => {
         const card = document.createElement('div');
         card.className = 'mapping-page-card';
@@ -1754,48 +1880,20 @@ function renderMappingInterface() {
                 </div>
             `;
         } else {
-            slotContent = `<div class="mapping-slot-placeholder">Drop MHTML file here to map</div>`;
+            slotContent = `<div class="mapping-slot-placeholder">Drop MHTML here</div>`;
         }
         
         card.innerHTML = `
-            <div style="display: flex; gap: 10px; align-items: center; margin-bottom: 8px;">
-                <input type="text" class="mapping-page-input" value="${escapeHtml(p.name)}" 
-                    onchange="renamePage(${idx}, this.value)" 
-                    style="flex: 1; padding: 6px 10px; font-size: 0.8rem; font-weight: 600; border-radius: 4px; border: 1px solid var(--border-glass);"
-                    title="Rename page title">
-            </div>
+            <input type="text" class="mapping-page-input" value="${escapeHtml(p.name)}" 
+                onchange="renamePage(${idx}, this.value)" 
+                style="width: 100%; padding: 4px 8px; font-size: 0.75rem; font-weight: 600; border-radius: 3px; border: 1px solid var(--border-glass); margin-bottom: 4px;"
+                title="Rename page title">
             <div class="mapping-drop-slot" id="page-slot-${idx}">
                 ${slotContent}
             </div>
         `;
         pagesList.appendChild(card);
     });
-    
-    // Filter out unmapped files (Right Side)
-    const mappedFiles = new Set(mappingState.pages.map(p => p.mappedMhtml).filter(Boolean));
-    const unmappedMhtml = mappingState.mhtmlFiles.filter(f => !mappedFiles.has(f));
-    
-    if (unmappedMhtml.length > 0) {
-        unmappedMhtml.forEach(filename => {
-            const badge = document.createElement('div');
-            badge.className = 'draggable-mhtml-badge';
-            badge.setAttribute('draggable', 'true');
-            badge.id = `mhtml-badge-${filename}`;
-            
-            badge.addEventListener('dragstart', (e) => handleMhtmlDragStart(e, filename));
-            
-            badge.innerHTML = `
-                <span class="drag-handle">☰</span>
-                <input type="text" class="mhtml-rename-input" value="${escapeHtml(filename)}" 
-                    onchange="renameMhtmlFile('${escapeJs(filename)}', this.value)" 
-                    style="flex: 1; padding: 4px 8px; font-size: 0.75rem; border-radius: 4px; border: 1px solid var(--border-glass); background: transparent;"
-                    title="Rename MHTML file">
-            `;
-            mhtmlList.appendChild(badge);
-        });
-    } else {
-        mhtmlList.innerHTML = '<div style="font-size: 0.72rem; color: var(--text-muted); text-align: center; padding: 20px 0;">All MHTML files mapped</div>';
-    }
 }
 
 function handleMhtmlDragStart(e, filename) {
@@ -1992,4 +2090,189 @@ async function dbRenameMhtmlFile(oldName, newName) {
     
     await Promise.all(copyPromises);
     await dbHelper.deleteMhtmlFile(oldName);
+}
+
+// ========== Element Selection & Removal ==========
+
+function toggleElementSelection(idx, checked) {
+    if (checked) {
+        selectedElements.add(idx);
+    } else {
+        selectedElements.delete(idx);
+    }
+    updateRemoveButtonState();
+    updateSelectAllState();
+}
+
+function toggleSelectAll() {
+    const selectAllBtn = document.getElementById('btn-select-all');
+    const allAlreadySelected = filteredIndices.length > 0 && filteredIndices.every(idx => selectedElements.has(idx));
+
+    filteredIndices.forEach(idx => {
+        if (allAlreadySelected) {
+            selectedElements.delete(idx);
+        } else {
+            selectedElements.add(idx);
+        }
+    });
+
+    updateRemoveButtonState();
+    renderElementsList();
+}
+
+function updateSelectAllState() {
+    const selectAllBtn = document.getElementById('btn-select-all');
+    if (!selectAllBtn) return;
+    const allFilteredSelected = filteredIndices.length > 0 && filteredIndices.every(idx => selectedElements.has(idx));
+    const someSelected = filteredIndices.some(idx => selectedElements.has(idx));
+    selectAllBtn.classList.toggle('active', allFilteredSelected);
+    selectAllBtn.classList.toggle('indeterminate', !allFilteredSelected && someSelected);
+    selectAllBtn.textContent = allFilteredSelected ? 'Deselect All' : 'Select All';
+}
+
+function updateRemoveButtonState() {
+    const btn = document.getElementById('btn-remove-selected');
+    const badge = document.getElementById('remove-count-badge');
+    if (!btn || !badge) return;
+
+    const count = selectedElements.size;
+    badge.textContent = count;
+    btn.disabled = count === 0;
+}
+
+function removeSelectedElements() {
+    if (selectedElements.size === 0) return;
+
+    const page = locatorsConfig.pages[currentPageIndex];
+    const elements = page.elements;
+    const selectedNames = [];
+
+    selectedElements.forEach(idx => {
+        if (elements[idx]) {
+            selectedNames.push(elements[idx].name);
+        }
+    });
+
+    // Populate confirmation modal
+    const desc = document.getElementById('confirm-remove-desc');
+    const countEl = document.getElementById('confirm-remove-count');
+    const listEl = document.getElementById('confirm-remove-list');
+
+    desc.textContent = `Are you sure you want to remove ${selectedNames.length} element${selectedNames.length > 1 ? 's' : ''} from the locator configuration? This action cannot be undone.`;
+    countEl.textContent = `${selectedNames.length} element${selectedNames.length > 1 ? 's' : ''} will be removed`;
+
+    listEl.innerHTML = selectedNames.map(name =>
+        `<div class="confirm-list-item">${escapeHtml(name)}</div>`
+    ).join('');
+
+    document.getElementById('confirm-remove-modal').style.display = 'flex';
+}
+
+function closeConfirmRemoveModal() {
+    document.getElementById('confirm-remove-modal').style.display = 'none';
+}
+
+async function confirmRemoveElements() {
+    if (selectedElements.size === 0) return;
+
+    const page = locatorsConfig.pages[currentPageIndex];
+    const elements = page.elements;
+
+    // Sort indices descending to remove from end first (preserve earlier indices)
+    const sortedIndices = Array.from(selectedElements).sort((a, b) => b - a);
+    sortedIndices.forEach(idx => {
+        if (idx >= 0 && idx < elements.length) {
+            elements.splice(idx, 1);
+        }
+    });
+
+    // Save updated config back to IndexedDB
+    await saveLocatorConfigToDB();
+
+    // Clear selection
+    selectedElements.clear();
+    currentElementIndex = Math.min(currentElementIndex, elements.length - 1);
+
+    // Close modal and re-render
+    closeConfirmRemoveModal();
+    updateStatsPanel();
+    renderElementsList();
+}
+
+async function saveLocatorConfigToDB() {
+    try {
+        // Reconstruct the full locator config from IndexedDB
+        const groupSelect = document.getElementById('group-select');
+        const activeGroups = (mapperConfig.test_groups || []).filter(g => g.active !== false);
+        const groupIdx = parseInt(groupSelect.value);
+        const group = activeGroups[groupIdx];
+        if (!group) return;
+
+        const folder = group.folder || '';
+        const key = `locators||${folder}`;
+        let fullConfig = await dbHelper.getConfig(key) || await dbHelper.getConfig('locators||');
+        if (!fullConfig) return;
+
+        // Update the current page's elements in the full config
+        const currentPage = locatorsConfig.pages[currentPageIndex];
+        if (currentPage) {
+            const fullPage = fullConfig.pages.find(p => p.name === currentPage.name);
+            if (fullPage) {
+                fullPage.elements = currentPage.elements;
+            }
+        }
+
+        await dbHelper.setConfig(key, fullConfig);
+    } catch (e) {
+        console.error("Error saving locator config to DB:", e);
+    }
+}
+
+// ========== Export JSON ==========
+
+async function exportLocatorJson() {
+    try {
+        // Fetch full locator config from IndexedDB
+        const groupSelect = document.getElementById('group-select');
+        const activeGroups = (mapperConfig.test_groups || []).filter(g => g.active !== false);
+        const groupIdx = parseInt(groupSelect.value);
+        const group = activeGroups[groupIdx];
+        if (!group) {
+            alert("No active test group selected. Cannot export.");
+            return;
+        }
+
+        const folder = group.folder || '';
+        const key = `locators||${folder}`;
+        let fullConfig = await dbHelper.getConfig(key) || await dbHelper.getConfig('locators||');
+        if (!fullConfig || !fullConfig.pages || fullConfig.pages.length === 0) {
+            alert("No locator configuration found to export.");
+            return;
+        }
+
+        // Apply any in-memory changes for the current page
+        const currentPage = locatorsConfig.pages[currentPageIndex];
+        if (currentPage) {
+            const fullPage = fullConfig.pages.find(p => p.name === currentPage.name);
+            if (fullPage) {
+                fullPage.elements = currentPage.elements;
+            }
+        }
+
+        // Create and trigger download
+        const jsonStr = JSON.stringify(fullConfig, null, 2);
+        const blob = new Blob([jsonStr], { type: 'application/json' });
+        const url = URL.createObjectURL(blob);
+
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `locator_config_${folder || 'default'}.json`;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        URL.revokeObjectURL(url);
+    } catch (e) {
+        console.error("Error exporting locator JSON:", e);
+        alert("Failed to export JSON. See console for details.");
+    }
 }
