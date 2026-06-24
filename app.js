@@ -279,7 +279,7 @@ async function onStepChanged() {
     const mhtmlFile = mapping.mhtml_file;
     const pageName = mapping.page_name;
     
-    const relativePath = folder ? `${folder}/${mhtmlFile}` : mhtmlFile;
+    const relativePath = mhtmlFile;
     const iframe = document.getElementById('preview-iframe');
     
     // 1. Set iframe source to serve the MHTML archive (intercepted by Service Worker)
