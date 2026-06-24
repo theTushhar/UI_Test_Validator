@@ -8,10 +8,7 @@
   ],
   "functions": {
     "server.js": {
-      "includeFiles": [
-        "Data/**",
-        "mapper.json"
-      ]
+      "includeFiles": "{Data/**,mapper.json}"
     }
   },
   "rewrites": [
