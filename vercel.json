@@ -2,7 +2,7 @@
   "version": 2,
   "functions": {
     "api/server.js": {
-      "includeFiles": "{Data/**,mapper.json}"
+      "includeFiles": "{Data/**,mapper.json,style.css,index.html,app.js,db.js,mhtmlParserBrowser.js,sw.js}"
     }
   },
   "rewrites": [
@@ -12,6 +12,10 @@
     },
     {
       "source": "/serve_mhtml/(.*)",
+      "destination": "/api/server.js"
+    },
+    {
+      "source": "/(.*)",
       "destination": "/api/server.js"
     }
   ]
