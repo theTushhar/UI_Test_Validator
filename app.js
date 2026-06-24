@@ -1837,7 +1837,8 @@ async function saveMappingConfig() {
     mapperConfig = newMapperConfig;
     
     alert("Mapping saved! mapper.json has been created and verified.");
-    exitMappingMode();
+    closeUploadModal();
+    await initApp();
 }
 
 async function dbRenameMhtmlFile(oldName, newName) {
