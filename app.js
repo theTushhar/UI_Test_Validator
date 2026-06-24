@@ -1170,6 +1170,16 @@ function reloadIframe() {
     iframe.src = iframe.src;
 }
 
+function clearCacheAndRefresh() {
+    const dbs = indexedDB.databases ? indexedDB.databases() : Promise.resolve([]);
+    dbs.then(list => {
+        list.forEach(db => indexedDB.deleteDatabase(db.name));
+        setTimeout(() => location.reload(true), 300);
+    }).catch(() => {
+        location.reload(true);
+    });
+}
+
 // Copy utilities
 function copyToClipboard(text) {
     navigator.clipboard.writeText(text).then(() => {
