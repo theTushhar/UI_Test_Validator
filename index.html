@@ -9,6 +9,10 @@
 </head>
 <body>
     <div class="app-container">
+        <!-- Ambient floating blur blobs for premium glassmorphism background -->
+        <div class="ambient-glow orb-1"></div>
+        <div class="ambient-glow orb-2"></div>
+        
         <!-- Left Sidebar: Elements Navigation -->
         <aside class="left-sidebar">
             <div class="sidebar-header">
@@ -160,8 +164,69 @@
             </header>
 
             <div class="iframe-container" id="iframe-container-box">
+                <!-- Gorgeous Dashboard Welcome View when no MHTML file is loaded -->
+                <div id="welcome-dashboard" class="welcome-dashboard">
+                    <div class="dashboard-backdrop-glow"></div>
+                    <div class="dashboard-card">
+                        <div class="dashboard-logo">
+                            <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="url(#logo-grad)" stroke-width="2.5">
+                                <defs>
+                                    <linearGradient id="logo-grad" x1="0%" y1="0%" x2="100%" y2="100%">
+                                        <stop offset="0%" stop-color="#6366f1" />
+                                        <stop offset="100%" stop-color="#8b5cf6" />
+                                    </linearGradient>
+                                </defs>
+                                <path d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/>
+                                <path d="M8 11h6M11 8v6" stroke-linecap="round"/>
+                            </svg>
+                        </div>
+                        <h2 class="dashboard-title">DOM Locator Verifier</h2>
+                        <p class="dashboard-subtitle">Verify selectors, locators, and DOM targets in MHTML offline in your browser.</p>
+                        
+                        <div class="dashboard-stats-grid">
+                            <div class="db-stat-box">
+                                <div class="db-stat-num" id="db-stat-groups">0</div>
+                                <div class="db-stat-lbl">Test Groups</div>
+                            </div>
+                            <div class="db-stat-box">
+                                <div class="db-stat-num" id="db-stat-screens">0</div>
+                                <div class="db-stat-lbl">MHTML Screens</div>
+                            </div>
+                            <div class="db-stat-box">
+                                <div class="db-stat-num" id="db-stat-locators">0</div>
+                                <div class="db-stat-lbl">Locator Mappings</div>
+                            </div>
+                        </div>
+
+                        <div class="dashboard-actions">
+                            <button class="btn btn-primary" onclick="openUploadModal()">
+                                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" style="margin-right: 4px;">
+                                    <path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4M17 8l-5-5-5 5M12 3v12"/>
+                                </svg>
+                                <span>Configure Workspace Data</span>
+                            </button>
+                        </div>
+
+                        <div class="dashboard-quick-steps">
+                            <h3>⚡ Quick Start Guide</h3>
+                            <div class="quick-step-item">
+                                <span class="step-num">1</span>
+                                <span class="step-text">Open the data configuration modal, then upload your locator.json and .mhtml screens.</span>
+                            </div>
+                            <div class="quick-step-item">
+                                <span class="step-num">2</span>
+                                <span class="step-text">Map page targets to screens, save, and exit back to the workspace.</span>
+                            </div>
+                            <div class="quick-step-item">
+                                <span class="step-num">3</span>
+                                <span class="step-text">Select your test step from the left sidebar to start validating locators in real-time.</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
                 <!-- Wrapper for centering and scaling -->
-                <div id="iframe-scaler-wrapper" class="iframe-scaler-wrapper">
+                <div id="iframe-scaler-wrapper" class="iframe-scaler-wrapper" style="display: none;">
                     <div id="iframe-scaler" class="iframe-scaler">
                         <iframe id="preview-iframe" name="preview-iframe" src="about:blank"></iframe>
                     </div>
@@ -268,21 +333,21 @@
                     <div style="height: 16px;"></div>
                     
                     <!-- Two Column Upload Fields -->
-                    <div class="upload-columns-container" style="display: flex; gap: 20px; margin-bottom: 20px;">
+                    <div class="upload-columns-container">
                         <!-- Column 1: HTML/MHTML Files -->
-                        <div class="upload-col" id="col-mhtml" style="flex: 1; border: 2px dashed rgba(79, 70, 229, 0.2); background: rgba(79, 70, 229, 0.01); border-radius: var(--border-radius-lg); padding: 32px 24px; text-align: center; cursor: pointer; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 12px; transition: var(--transition-smooth);" onclick="triggerMhtmlInput()">
-                            <div style="font-size: 2.2rem; filter: drop-shadow(0 2px 5px rgba(0,0,0,0.08));">📄</div>
-                            <div style="font-size: 0.82rem; font-weight: 700; color: var(--text-primary);">1. Upload HTML/MHTML Files</div>
-                            <div style="font-size: 0.7rem; color: var(--text-muted);">Select page screens to verify</div>
+                        <div class="upload-col" id="col-mhtml" onclick="triggerMhtmlInput()">
+                            <div class="upload-col-icon">📄</div>
+                            <div class="upload-col-title">1. Upload HTML/MHTML Files</div>
+                            <div class="upload-col-desc">Select page screens to verify</div>
                             <div class="upload-sub-btn" style="pointer-events: none; margin-top: 4px;">Choose Files</div>
                             <input type="file" id="mhtml-file-input" multiple accept=".mhtml,.html" style="display: none;" onchange="handleMhtmlFilesSelected(event)">
                         </div>
                         
                         <!-- Column 2: Locator JSON -->
-                        <div class="upload-col" id="col-json" style="flex: 1; border: 2px dashed rgba(79, 70, 229, 0.2); background: rgba(79, 70, 229, 0.01); border-radius: var(--border-radius-lg); padding: 32px 24px; text-align: center; cursor: pointer; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 12px; transition: var(--transition-smooth);" onclick="triggerJsonInput()">
-                            <div style="font-size: 2.2rem; filter: drop-shadow(0 2px 5px rgba(0,0,0,0.08));">⚙️</div>
-                            <div style="font-size: 0.82rem; font-weight: 700; color: var(--text-primary);">2. Upload locator.json</div>
-                            <div style="font-size: 0.7rem; color: var(--text-muted);">Select elements configuration JSON</div>
+                        <div class="upload-col" id="col-json" onclick="triggerJsonInput()">
+                            <div class="upload-col-icon">⚙️</div>
+                            <div class="upload-col-title">2. Upload locator.json</div>
+                            <div class="upload-col-desc">Select elements configuration JSON</div>
                             <div class="upload-sub-btn" style="pointer-events: none; margin-top: 4px;">Choose File</div>
                             <input type="file" id="json-file-input" accept=".json" style="display: none;" onchange="handleJsonFileSelected(event)">
                         </div>

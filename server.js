@@ -7,6 +7,13 @@ const { MHTMLArchive } = require('./mhtmlParser');
 const app = express();
 const PORT = process.env.PORT || 3000;
 
+// Use process.cwd() on Vercel because files are located in the build output directory, 
+// otherwise use __dirname for local development.
+const projectRoot = process.env.VERCEL ? process.cwd() : __dirname;
+
+// Ephemeral in-memory fallback for locator findings when running in a read-only environment like Vercel
+let inMemoryFindings = {};
+
 // Enable JSON parsing middleware with a larger limit for locator findings payload
 app.use(express.json({ limit: '50mb' }));
 
@@ -25,13 +32,13 @@ function resolvePath(relativePath) {
     const cleanRelPath = relativePath.split(/[/\\]+/).join(path.sep);
     
     // 1. Try directly in workspace root
-    const path1 = path.join(__dirname, cleanRelPath);
+    const path1 = path.join(projectRoot, cleanRelPath);
     if (fs.existsSync(path1)) {
         return path1;
     }
     
     // 2. Try inside "Data" folder
-    const path2 = path.join(__dirname, 'Data', cleanRelPath);
+    const path2 = path.join(projectRoot, 'Data', cleanRelPath);
     if (fs.existsSync(path2)) {
         return path2;
     }
@@ -45,7 +52,7 @@ function resolvePath(relativePath) {
  * @returns {object} The parsed mapper object
  */
 function loadMapper() {
-    const mapperPath = resolvePath('mapper.json') || path.join(__dirname, 'mapper.json');
+    const mapperPath = resolvePath('mapper.json') || path.join(projectRoot, 'mapper.json');
     if (fs.existsSync(mapperPath)) {
         try {
             const data = fs.readFileSync(mapperPath, 'utf-8');
@@ -137,7 +144,7 @@ app.get('/api/files', (req, res) => {
         files.sort();
         return res.json(files);
     } else {
-        const files = getMhtmlFilesRecursively(__dirname, __dirname);
+        const files = getMhtmlFilesRecursively(projectRoot, projectRoot);
         files.sort();
         return res.json(files);
     }
@@ -179,7 +186,7 @@ app.get('/api/locators', (req, res) => {
 
 // Get User Findings
 app.get('/api/findings', (req, res) => {
-    const findingsPath = resolvePath('locator_findings.json') || path.join(__dirname, 'locator_findings.json');
+    const findingsPath = resolvePath('locator_findings.json') || path.join(projectRoot, 'locator_findings.json');
     let data = {};
     
     if (fs.existsSync(findingsPath)) {
@@ -189,6 +196,9 @@ app.get('/api/findings', (req, res) => {
         } catch (e) {
             console.error(`[Server] Error parsing findings:`, e);
         }
+    } else {
+        // Fallback to in-memory store if the file doesn't exist
+        data = inMemoryFindings;
     }
     res.json(data);
 });
@@ -200,11 +210,11 @@ app.post('/api/save', (req, res) => {
     
     if (!findingsPath) {
         // If not found, write to root or Data/ if Data exists
-        const dataDir = path.join(__dirname, 'Data');
+        const dataDir = path.join(projectRoot, 'Data');
         if (fs.existsSync(dataDir)) {
             findingsPath = path.join(dataDir, 'locator_findings.json');
         } else {
-            findingsPath = path.join(__dirname, 'locator_findings.json');
+            findingsPath = path.join(projectRoot, 'locator_findings.json');
         }
     }
     
@@ -212,8 +222,9 @@ app.post('/api/save', (req, res) => {
         fs.writeFileSync(findingsPath, JSON.stringify(findings, null, 2), 'utf-8');
         res.json({ status: 'success', file: findingsPath });
     } catch (e) {
-        console.error(`[Server] Error saving findings to ${findingsPath}:`, e);
-        res.status(500).json({ error: 'Failed to save findings', details: e.message });
+        console.warn(`[Server] Failed to write findings to disk. Falling back to in-memory storage. This is expected in read-only serverless environments like Vercel.`, e);
+        inMemoryFindings = findings;
+        res.json({ status: 'success', storage: 'memory', warning: 'Filesystem is read-only. Findings saved in memory only.' });
     }
 });
 
@@ -322,17 +333,22 @@ app.get('/serve_mhtml/*', (req, res) => {
 // ==========================================
 
 // Serve frontend static assets (CSS, JS, images, etc.) from root directory
-app.use(express.static(__dirname));
+app.use(express.static(projectRoot));
 
 // Fallback to index.html for frontend routing
 app.get('*', (req, res) => {
-    res.sendFile(path.join(__dirname, 'index.html'));
+    res.sendFile(path.join(projectRoot, 'index.html'));
 });
 
-// Start the consolidated Express Server
-app.listen(PORT, () => {
-    console.log(`\n==================================================`);
-    console.log(`🚀 Unified JS Server is running at: http://localhost:${PORT}`);
-    console.log(`📂 Scanning files in: ${__dirname}`);
-    console.log(`==================================================\n`);
-});
+// Export app for serverless deployment on platforms like Vercel
+module.exports = app;
+
+// Start the consolidated Express Server only if run directly (local development)
+if (require.main === module) {
+    app.listen(PORT, () => {
+        console.log(`\n==================================================`);
+        console.log(`🚀 Unified JS Server is running at: http://localhost:${PORT}`);
+        console.log(`📂 Scanning files in: ${projectRoot}`);
+        console.log(`==================================================\n`);
+    });
+}
