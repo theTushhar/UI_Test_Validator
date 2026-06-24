@@ -1402,6 +1402,9 @@ async function handleMhtmlFilesSelected(e) {
     
     logToModalConsole(`Reading ${files.length} MHTML files...`, 'info');
     
+    // Track filenames uploaded in this batch
+    const batchNames = [];
+    
     let successCount = 0;
     for (const file of files) {
         try {
@@ -1435,6 +1438,7 @@ async function handleMhtmlFilesSelected(e) {
             }
             
             successCount++;
+            batchNames.push(uniqueName);
             logToModalConsole(`Success: ${uniqueName} imported.`, 'success');
         } catch (err) {
             logToModalConsole(`Error processing MHTML file ${file.name}: ${err.message}`, 'error');
@@ -1442,6 +1446,13 @@ async function handleMhtmlFilesSelected(e) {
         }
     }
     logToModalConsole(`Finished importing MHTML files: ${successCount} successfully processed.`, 'success');
+    
+    // Save this batch so mapping mode only shows these files
+    if (batchNames.length > 0) {
+        const prev = await dbHelper.getConfig('mhtml_batch') || [];
+        await dbHelper.setConfig('mhtml_batch', [...prev, ...batchNames]);
+    }
+    
     refreshUploadStatusDisplay();
 }
 
@@ -1469,6 +1480,13 @@ async function handleJsonFileSelected(e) {
         }
         
         await dbHelper.setConfig(locatorKey, json);
+        
+        // Associate current MHTML batch with this locator folder
+        const currentBatch = await dbHelper.getConfig('mhtml_batch');
+        if (currentBatch && currentBatch.length > 0) {
+            await dbHelper.setConfig(`mhtml_batch||${folderName}`, currentBatch);
+        }
+        
         logToModalConsole(`Success: locator.json configuration imported (folder: ${folderName}).`, 'success');
         refreshUploadStatusDisplay();
     } catch (err) {
@@ -1634,7 +1652,9 @@ async function enterMappingMode() {
         return;
     }
     
-    const mhtmlList = await dbHelper.getAllMhtmlFiles();
+    const mhtmlList = (await dbHelper.getConfig(`mhtml_batch||${activeFolder}`))
+        || (await dbHelper.getConfig('mhtml_batch'))
+        || await dbHelper.getAllMhtmlFiles();
     
     // Map existing paired steps if mapper configuration exists
     mappingState = {
