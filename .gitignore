@@ -1,0 +1,25 @@
+# Dependency directories
+node_modules/
+
+# Local cache & agent system configs
+.gemini/
+.agents/
+__pycache__/
+*.pyc
+
+# Local backup files
+*.backup
+
+# Workspace local data folder (contains MHTML and locator configurations)
+# Users now upload files directly in the browser, storing them in IndexedDB.
+# Keep data out of GitHub for clean repository sizes.
+Data/
+**/locator.json
+**/mapper.json
+**/locator_findings.json
+locator_findings.json
+
+# OS-specific files
+.DS_Store
+Thumbs.db
+desktop.ini

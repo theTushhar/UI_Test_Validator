@@ -1,0 +1,356 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Locator & DOM Verifier Workspace</title>
+    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <div class="app-container">
+        <!-- Left Sidebar: Elements Navigation -->
+        <aside class="left-sidebar">
+            <div class="sidebar-header">
+                <h1 class="app-title">
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+                        <path d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/>
+                    </svg>
+                    <span>DOM Locator Verifier</span>
+                </h1>
+                
+                <button id="btn-open-upload" class="control-btn upload-db-btn" onclick="openUploadModal()" style="width: 100%; margin-bottom: 20px; display: flex; align-items: center; justify-content: center; gap: 8px;">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+                        <path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4M17 8l-5-5-5 5M12 3v12"/>
+                    </svg>
+                    <span>Manage Workspace Data</span>
+                </button>
+                
+                <div class="dropdown-group">
+                    <div class="control-wrapper">
+                        <label class="control-label" for="group-select">1. Choose Test Group</label>
+                        <div class="select-container">
+                            <select id="group-select" onchange="onGroupChanged()">
+                                <option value="">-- Load a test group --</option>
+                            </select>
+                        </div>
+                    </div>
+                    <div class="control-wrapper">
+                        <label class="control-label" for="step-select">2. Choose Step / Screen</label>
+                        <div class="select-container">
+                            <select id="step-select" onchange="onStepChanged()" disabled>
+                                <option value="">-- Select a step --</option>
+                            </select>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Statistics summary -->
+            <div class="stats-panel">
+                <div class="stat-card stat-total-card">
+                    <div class="stat-val" id="stat-total">0</div>
+                    <div class="stat-label">Total</div>
+                </div>
+                <div class="stat-card stat-matched-card">
+                    <div class="stat-val" id="stat-matched">0</div>
+                    <div class="stat-label">Visible</div>
+                </div>
+                <div class="stat-card stat-mismatched-card">
+                    <div class="stat-val" id="stat-mismatched">0</div>
+                    <div class="stat-label">Failed / Hidden</div>
+                </div>
+            </div>
+            
+            <!-- Search & Filters -->
+            <div class="filters-container">
+                <div class="filter-row">
+                    <input type="text" id="search-input" class="search-input" placeholder="Search by name..." oninput="filterElementsList()">
+                </div>
+                <div class="filter-grid">
+                    <div class="filter-wrapper">
+                        <select id="filter-type" onchange="filterElementsList()">
+                            <option value="">All Types</option>
+                        </select>
+                    </div>
+                    <div class="filter-wrapper">
+                        <select id="filter-mode" onchange="filterElementsList()">
+                            <option value="">All Modes</option>
+                        </select>
+                    </div>
+                    <div class="filter-wrapper">
+                        <select id="filter-status" onchange="filterElementsList()">
+                            <option value="">All Statuses</option>
+                            <option value="matched">Matched & Visible</option>
+                            <option value="mismatched">Failed / No Match</option>
+                            <option value="unchecked">Matched but Hidden</option>
+                        </select>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="filter-results-summary" id="filter-results-summary" style="display: none;">
+                Showing 0 of 0 elements
+            </div>
+            
+            <!-- Elements Navigation List -->
+            <div class="element-list" id="element-list">
+                <div class="placeholder-view">
+                    <div class="placeholder-icon">📋</div>
+                    <div>Select a test group and step to load elements</div>
+                </div>
+            </div>
+        </aside>
+
+        <!-- Middle Column: Iframe Preview -->
+        <main class="main-content">
+            <header class="top-bar">
+                <div class="loaded-file-name" id="loaded-file-indicator" title="No MHTML File Active">No MHTML File Active</div>
+                
+                <!-- Center Navigation -->
+                <div class="nav-bar">
+                    <button id="btn-prev" class="nav-btn" onclick="navigateSteps(-1)" disabled title="Previous Step (HotKey: [ )">
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M15 19l-7-7 7-7"/></svg>
+                    </button>
+                    <span class="nav-label" id="nav-label">No group selected</span>
+                    <button id="btn-next" class="nav-btn" onclick="navigateSteps(1)" disabled title="Next Step (HotKey: ] )">
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M9 5l7 7-7 7"/></svg>
+                    </button>
+                </div>
+
+                <!-- Right Side Controls -->
+                <div class="iframe-controls">
+                    <label class="verified-checkbox-row toggle-switch-label" title="Hide blocking dialogs and spinner overlays in the preview page">
+                        <input type="checkbox" id="hide-blockers-chk" checked onchange="onHideBlockersChanged()">
+                        <span class="toggle-switch"></span>
+                        <span class="toggle-label-text">Hide Overlays</span>
+                    </label>
+                    
+                    <span class="divider"></span>
+                    
+                    <!-- Desktop View & Zoom Controls -->
+                    <div class="zoom-controls">
+                        <button class="zoom-btn" onclick="adjustManualZoom(-0.05)" title="Zoom Out">-</button>
+                        <span class="zoom-display" id="zoom-percentage">100%</span>
+                        <button class="zoom-btn" onclick="adjustManualZoom(0.05)" title="Zoom In">+</button>
+                        <button id="btn-autofit" class="control-btn active" onclick="toggleAutoFit()" title="Toggle Auto Fit to viewport width">Auto Fit</button>
+                    </div>
+
+                    <span class="divider"></span>
+                    
+                    <button id="btn-inspect" class="control-btn" onclick="toggleInspectMode()" title="Toggle Inspect Element Mode">
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+                            <circle cx="11" cy="11" r="8"></circle>
+                            <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
+                            <line x1="11" y1="8" x2="11" y2="14"></line>
+                            <line x1="8" y1="11" x2="14" y2="11"></line>
+                        </svg>
+                        <span>Inspect</span>
+                    </button>
+
+                    <span class="divider"></span>
+                    
+                    <button onclick="reloadIframe()" class="control-btn icon-btn" title="Reload Frame">
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+                            <path d="M21.5 2v6h-6M21.34 15.57a10 10 0 11-.57-8.38l.73-.72"/>
+                        </svg>
+                        <span>Reload</span>
+                    </button>
+                </div>
+            </header>
+
+            <div class="iframe-container" id="iframe-container-box">
+                <!-- Wrapper for centering and scaling -->
+                <div id="iframe-scaler-wrapper" class="iframe-scaler-wrapper">
+                    <div id="iframe-scaler" class="iframe-scaler">
+                        <iframe id="preview-iframe" name="preview-iframe" src="about:blank"></iframe>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Floating Navigation Bar in center bottom of preview screen -->
+            <div class="floating-nav-bar">
+                <button id="float-btn-prev" class="float-nav-btn" onclick="prevElement()" title="Previous UI Element (HotKey: Left Arrow)">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M15 19l-7-7 7-7"/></svg>
+                    <span>Previous Element</span>
+                </button>
+                <div class="float-nav-divider"></div>
+                <button id="float-btn-next" class="float-nav-btn" onclick="nextElement()" title="Next UI Element (HotKey: Right Arrow)">
+                    <span>Next Element</span>
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M9 5l7 7-7 7"/></svg>
+                </button>
+            </div>
+        </main>
+
+        <!-- Details & Evaluation Modal -->
+        <div id="details-modal" class="modal-overlay" style="display: none;">
+            <div class="modal-content wide-modal">
+                <button class="modal-close" onclick="closeDetailsModal()" title="Close Modal">&times;</button>
+                
+                <div class="details-panel-wide">
+                    <!-- Left Column: Component Details -->
+                    <div class="modal-left-col">
+                        <h2 id="detail-el-name" class="detail-title">Component Name</h2>
+                        
+                        <div class="detail-meta-vertical">
+                            <div class="meta-item-vertical">
+                                <span class="meta-label">Type</span>
+                                <strong id="detail-el-type" class="meta-value">-</strong>
+                            </div>
+                            <div class="meta-item-vertical">
+                                <span class="meta-label">Mode</span>
+                                <strong id="detail-el-mode" class="meta-value">-</strong>
+                            </div>
+                            <div class="meta-item-vertical">
+                                <span class="meta-label">Event</span>
+                                <strong id="detail-el-event" class="meta-value">-</strong>
+                            </div>
+                        </div>
+                        
+                        <!-- Modal Quick Navigation -->
+                        <div class="modal-nav-row">
+                            <button class="btn btn-secondary" onclick="prevElement()">
+                                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M19 12H5M12 19l-7-7 7-7"/></svg>
+                                <span>Previous</span>
+                            </button>
+                            <button class="btn btn-primary" onclick="nextElement()">
+                                <span>Next</span>
+                                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M5 12h14M12 5l7 7-7 7"/></svg>
+                            </button>
+                        </div>
+                    </div>
+                    
+                    <!-- Right Column: Locators in Database -->
+                    <div class="modal-right-col">
+                        <h3 class="section-subtitle">Locators in database</h3>
+                        <div class="locators-list" id="detail-locators-container">
+                            <!-- Locators populated here -->
+                        </div>
+                    </div>
+                </div>
+                
+                <footer class="hotkeys-helper">
+                    <span>Hotkeys:</span>
+                    <kbd>←</kbd> <kbd>→</kbd> Navigate Elements &nbsp;|&nbsp; <kbd>[</kbd> <kbd>]</kbd> Step &nbsp;|&nbsp; <kbd>Esc</kbd> Close
+                </footer>
+            </div>
+        </div>
+        
+        <!-- Manage Workspace Data Modal -->
+        <div id="upload-modal" class="modal-overlay" style="display: none;">
+            <div class="modal-content upload-modal-content" id="upload-modal-box">
+                <button class="modal-close" onclick="closeUploadModal()" title="Close Modal">&times;</button>
+                
+                <!-- 1. Upload Mode View -->
+                <div id="upload-mode-view">
+                    <h2 class="detail-title" style="margin-bottom: 8px;">Manage Workspace Data</h2>
+                    <p class="upload-modal-description" style="margin-bottom: 12px;">
+                        Upload your workspace files to run the locator verifier completely offline inside your browser. Drag and drop files, or select them manually. All data is saved locally in your browser's IndexedDB database.
+                    </p>
+                    
+                    <!-- Files Upload & Naming Guide -->
+                    <details class="upload-guide-details">
+                        <summary class="upload-guide-summary">📄 File Upload & Naming Guide</summary>
+                        <div class="upload-guide-content">
+                            <p>To run the locator verifier offline, upload your page assets in the two columns below:</p>
+                            
+                            <h4 style="margin-top: 10px; margin-bottom: 6px; font-size: 0.78rem; font-weight: 700;">1. HTML/MHTML Files Column:</h4>
+                            <p style="margin-bottom: 8px;">Upload one or more <code>.mhtml</code> or <code>.html</code> page captures. These are the screens where your locators will be verified.</p>
+                            
+                            <h4 style="margin-bottom: 6px; font-size: 0.78rem; font-weight: 700;">2. locator.json Column:</h4>
+                            <p style="margin-bottom: 12px;">Upload the UI elements configuration file (usually named <code>locator.json</code>) which defines the pages, elements, and selectors.</p>
+                            
+                            <h4 style="margin-bottom: 6px; font-size: 0.78rem; font-weight: 700;">🗺️ Interactive Mapping:</h4>
+                            <p style="margin-bottom: 0;">Once both inputs are populated, the <strong>"Proceed to Mapping"</strong> button will appear. You will then be able to drag-and-drop the uploaded screens to pair them with the pages listed in the JSON configuration, and edit page or file titles.</p>
+                        </div>
+                    </details>
+                    
+                    <div style="height: 16px;"></div>
+                    
+                    <!-- Two Column Upload Fields -->
+                    <div class="upload-columns-container" style="display: flex; gap: 20px; margin-bottom: 20px;">
+                        <!-- Column 1: HTML/MHTML Files -->
+                        <div class="upload-col" id="col-mhtml" style="flex: 1; border: 2px dashed rgba(79, 70, 229, 0.2); background: rgba(79, 70, 229, 0.01); border-radius: var(--border-radius-lg); padding: 32px 24px; text-align: center; cursor: pointer; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 12px; transition: var(--transition-smooth);" onclick="triggerMhtmlInput()">
+                            <div style="font-size: 2.2rem; filter: drop-shadow(0 2px 5px rgba(0,0,0,0.08));">📄</div>
+                            <div style="font-size: 0.82rem; font-weight: 700; color: var(--text-primary);">1. Upload HTML/MHTML Files</div>
+                            <div style="font-size: 0.7rem; color: var(--text-muted);">Select page screens to verify</div>
+                            <div class="upload-sub-btn" style="pointer-events: none; margin-top: 4px;">Choose Files</div>
+                            <input type="file" id="mhtml-file-input" multiple accept=".mhtml,.html" style="display: none;" onchange="handleMhtmlFilesSelected(event)">
+                        </div>
+                        
+                        <!-- Column 2: Locator JSON -->
+                        <div class="upload-col" id="col-json" style="flex: 1; border: 2px dashed rgba(79, 70, 229, 0.2); background: rgba(79, 70, 229, 0.01); border-radius: var(--border-radius-lg); padding: 32px 24px; text-align: center; cursor: pointer; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 12px; transition: var(--transition-smooth);" onclick="triggerJsonInput()">
+                            <div style="font-size: 2.2rem; filter: drop-shadow(0 2px 5px rgba(0,0,0,0.08));">⚙️</div>
+                            <div style="font-size: 0.82rem; font-weight: 700; color: var(--text-primary);">2. Upload locator.json</div>
+                            <div style="font-size: 0.7rem; color: var(--text-muted);">Select elements configuration JSON</div>
+                            <div class="upload-sub-btn" style="pointer-events: none; margin-top: 4px;">Choose File</div>
+                            <input type="file" id="json-file-input" accept=".json" style="display: none;" onchange="handleJsonFileSelected(event)">
+                        </div>
+                    </div>
+                    
+                    <!-- Status Board -->
+                    <div class="upload-status-section">
+                        <div class="status-row" style="flex-direction: column; align-items: flex-start; gap: 8px;">
+                            <span class="status-row-title">Active Test Folders (locators):</span>
+                            <div id="status-locators" style="display: flex; gap: 6px; flex-wrap: wrap; margin-top: 4px;">
+                                <span style="font-size: 0.72rem; color: var(--text-muted);">None loaded</span>
+                            </div>
+                        </div>
+                        <div class="status-row" style="flex-direction: column; align-items: flex-start; gap: 4px;">
+                            <span class="status-row-title">Parsed MHTML Archives:</span>
+                            <div class="mhtml-file-list" id="status-mhtml-list">
+                                <div style="font-size: 0.72rem; color: var(--text-muted); text-align: center; padding: 10px 0; width: 100%;">No MHTML files uploaded</div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- Processing Log Console -->
+                    <div class="upload-log-container" id="upload-log-box" style="display: none;"></div>
+                    
+                    <footer class="modal-footer-actions">
+                        <button class="btn-danger-outline" onclick="clearAllWorkspaceData()">Clear Storage</button>
+                        <button id="btn-proceed-mapping" class="btn-primary" onclick="enterMappingMode()" style="display: none; padding: 10px 24px; flex: initial; max-width: 220px;">Proceed to Mapping &rarr;</button>
+                        <button id="btn-close-upload" class="btn-secondary" onclick="applyAndCloseUploadModal()" style="padding: 10px 20px; flex: initial; max-width: 150px;">Close</button>
+                    </footer>
+                </div>
+                
+                <!-- 2. Mapping Mode View -->
+                <div id="mapping-mode-view" style="display: none;">
+                    <h2 class="detail-title" style="margin-bottom: 8px;">Map Pages to MHTML Files</h2>
+                    <p class="upload-modal-description" style="margin-bottom: 20px;">
+                        Pair each page in your locator config with its corresponding MHTML archive. Drag MHTML files from the right and drop them onto the pages on the left. You can rename pages and files directly.
+                    </p>
+                    
+                    <div style="display: flex; justify-content: flex-end; margin-bottom: 12px; gap: 10px;">
+                        <button class="upload-sub-btn" onclick="autoMapBySuffix()" style="background-color: var(--match-glow); color: var(--match-color); border-color: var(--match-border);">🤖 Auto-Map Matches</button>
+                    </div>
+                    
+                    <div class="mapping-container" style="display: flex; gap: 24px; height: 50vh; min-height: 380px; margin-bottom: 20px;">
+                        <!-- Left: Pages (Drop Targets) -->
+                        <div class="mapping-column mapping-targets-col" style="flex: 1; display: flex; flex-direction: column; overflow: hidden; background: rgba(15, 23, 42, 0.01); border: 1px solid var(--border-glass); border-radius: var(--border-radius-md); padding: 16px;">
+                            <h3 class="section-subtitle">📋 Pages (from locator.json)</h3>
+                            <div class="mapping-scroll-box" id="mapping-pages-list" style="flex: 1; overflow-y: auto; display: flex; flex-direction: column; gap: 10px; padding-right: 6px;"></div>
+                        </div>
+                        
+                        <!-- Right: MHTML Files (Draggables) -->
+                        <div class="mapping-column mapping-sources-col" style="flex: 1; display: flex; flex-direction: column; overflow: hidden; background: rgba(15, 23, 42, 0.01); border: 1px solid var(--border-glass); border-radius: var(--border-radius-md); padding: 16px;">
+                            <h3 class="section-subtitle">📄 Unmapped MHTML Files</h3>
+                            <div class="mapping-scroll-box" id="mapping-mhtml-list" style="flex: 1; overflow-y: auto; display: flex; flex-direction: column; gap: 8px; padding-right: 6px;"></div>
+                        </div>
+                    </div>
+                    
+                    <footer class="modal-footer-actions">
+                        <button class="btn-secondary" onclick="exitMappingMode()" style="padding: 8px 16px; flex: initial; max-width: 150px;">← Back to Upload</button>
+                        <button class="btn-primary" onclick="saveMappingConfig()" style="padding: 8px 24px; flex: initial; max-width: 250px;">Save & Generate mapper.json</button>
+                    </footer>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Include client database & application logic -->
+    <script src="db.js"></script>
+    <script src="mhtmlParserBrowser.js"></script>
+    <script src="app.js"></script>
+</body>
+</html>
