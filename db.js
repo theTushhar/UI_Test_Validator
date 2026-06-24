@@ -80,6 +80,20 @@ const dbHelper = {
     },
     
     /**
+     * Deletes a config value by key.
+     */
+    async deleteConfig(key) {
+        const db = await this.init();
+        return new Promise((resolve, reject) => {
+            const tx = db.transaction('config', 'readwrite');
+            const store = tx.objectStore('config');
+            const req = store.delete(key);
+            req.onsuccess = () => resolve();
+            req.onerror = () => reject(req.error);
+        });
+    },
+    
+    /**
      * Saves MHTML Archive metadata.
      */
     async saveMhtmlMeta(meta) {

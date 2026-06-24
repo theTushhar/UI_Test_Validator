@@ -168,6 +168,7 @@ function populateGroupsDropdown() {
         onGroupChanged();
     } else {
         select.value = "";
+        document.getElementById('btn-delete-group').style.display = 'none';
         const stepSelect = document.getElementById('step-select');
         stepSelect.innerHTML = '<option value="">-- Select a step --</option>';
         stepSelect.disabled = true;
@@ -184,6 +185,7 @@ function onGroupChanged() {
     const groupIdx = parseInt(groupSelect.value);
     
     if (isNaN(groupIdx) || groupIdx < 0 || groupIdx >= activeGroups.length) {
+        document.getElementById('btn-delete-group').style.display = 'none';
         stepSelect.innerHTML = '<option value="">-- Select a step --</option>';
         stepSelect.disabled = true;
         locatorsConfig = { pages: [] };
@@ -201,6 +203,7 @@ function onGroupChanged() {
     }
     
     const group = activeGroups[groupIdx];
+    document.getElementById('btn-delete-group').style.display = 'flex';
     stepSelect.innerHTML = '';
     stepSelect.disabled = false;
     
@@ -214,6 +217,38 @@ function onGroupChanged() {
     // Auto-select first step
     stepSelect.value = 0;
     onStepChanged();
+}
+
+async function deleteSelectedGroup() {
+    const groupSelect = document.getElementById('group-select');
+    const activeGroups = (mapperConfig.test_groups || []).filter(g => g.active !== false);
+    const groupIdx = parseInt(groupSelect.value);
+    
+    if (isNaN(groupIdx) || groupIdx < 0 || groupIdx >= activeGroups.length) return;
+    
+    const group = activeGroups[groupIdx];
+    if (!confirm(`Delete group "${group.name}"?\n\nThis will remove the group mapping, locator config, and batch associations. MHTML archive files will NOT be deleted.`)) return;
+    
+    // Remove the group from test_groups (find in full array, not filtered)
+    const fullIdx = mapperConfig.test_groups.findIndex(g => g.folder === group.folder);
+    if (fullIdx !== -1) {
+        mapperConfig.test_groups.splice(fullIdx, 1);
+    }
+    
+    // Save updated mapper config
+    await dbHelper.setConfig('mapper', mapperConfig);
+    
+    // Clean up locator config and batch associations for this folder
+    if (group.folder) {
+        await dbHelper.deleteConfig(`locators||${group.folder}`);
+        await dbHelper.deleteConfig(`mhtml_batch||${group.folder}`);
+    } else {
+        await dbHelper.deleteConfig('locators||');
+        await dbHelper.deleteConfig('mhtml_batch');
+    }
+    
+    populateGroupsDropdown();
+    await initApp();
 }
 
 function populateFiltersDropdowns() {
