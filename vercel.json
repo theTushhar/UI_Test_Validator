@@ -1,24 +1,18 @@
 {
   "version": 2,
-  "builds": [
-    {
-      "src": "server.js",
-      "use": "@vercel/node"
-    }
-  ],
   "functions": {
-    "server.js": {
+    "api/server.js": {
       "includeFiles": "{Data/**,mapper.json}"
     }
   },
   "rewrites": [
     {
       "source": "/api/(.*)",
-      "destination": "/server.js"
+      "destination": "/api/server.js"
     },
     {
       "source": "/serve_mhtml/(.*)",
-      "destination": "/server.js"
+      "destination": "/api/server.js"
     },
     {
       "source": "/((?!api|serve_mhtml).*)",
