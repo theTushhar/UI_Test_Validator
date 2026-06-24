@@ -13,10 +13,6 @@
     {
       "source": "/serve_mhtml/(.*)",
       "destination": "/api/server.js"
-    },
-    {
-      "source": "/((?!api|serve_mhtml).*)",
-      "destination": "/index.html"
     }
   ]
 }
