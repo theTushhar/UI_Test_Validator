@@ -40,18 +40,26 @@ class MHTMLArchiveBrowser {
         function findSubArrayIndices(arr, sub) {
             const indices = [];
             const subLen = sub.length;
-            const limit = arr.length - subLen;
-            for (let i = 0; i <= limit; i++) {
+            if (subLen === 0) return indices;
+            const firstByte = sub[0];
+            let pos = 0;
+            while (true) {
+                pos = arr.indexOf(firstByte, pos);
+                if (pos === -1 || pos > arr.length - subLen) {
+                    break;
+                }
                 let match = true;
-                for (let j = 0; j < subLen; j++) {
-                    if (arr[i + j] !== sub[j]) {
+                for (let j = 1; j < subLen; j++) {
+                    if (arr[pos + j] !== sub[j]) {
                         match = false;
                         break;
                     }
                 }
                 if (match) {
-                    indices.push(i);
-                    i += subLen - 1; // Skip matches inside delimiter length
+                    indices.push(pos);
+                    pos += subLen; // Skip match length
+                } else {
+                    pos++;
                 }
             }
             return indices;

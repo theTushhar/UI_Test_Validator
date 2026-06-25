@@ -203,6 +203,35 @@ app.get('/api/findings', (req, res) => {
     res.json(data);
 });
 
+// Save Locator Config (PUT) — persists locator.json to disk
+app.put('/api/locators', (req, res) => {
+    const subdir = req.query.dir || '';
+    const locatorData = req.body;
+    
+    if (!locatorData || !locatorData.pages) {
+        return res.status(400).json({ error: 'Invalid locator config: missing "pages" key.' });
+    }
+    
+    let locatorPath = null;
+    if (subdir) {
+        const dataDir = path.join(projectRoot, 'Data', subdir);
+        if (!fs.existsSync(dataDir)) {
+            fs.mkdirSync(dataDir, { recursive: true });
+        }
+        locatorPath = path.join(dataDir, 'locator.json');
+    } else {
+        locatorPath = path.join(projectRoot, 'locator.json');
+    }
+    
+    try {
+        fs.writeFileSync(locatorPath, JSON.stringify(locatorData, null, 2), 'utf-8');
+        res.json({ status: 'success', file: locatorPath });
+    } catch (e) {
+        console.error(`[Server] Failed to write locator config:`, e);
+        res.status(500).json({ error: 'Failed to write locator config to disk.' });
+    }
+});
+
 // Save User Findings
 app.post('/api/save', (req, res) => {
     const findings = req.body;
