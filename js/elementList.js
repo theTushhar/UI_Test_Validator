@@ -184,7 +184,7 @@ export function renderElementsList() {
         const item = document.createElement('div');
         item.className = `element-item ${idx === state.currentElementIndex ? 'active' : ''}`;
         item.id = `el-item-${idx}`;
-        item.onclick = () => selectElement(idx, false);
+        item.onclick = () => selectElement(idx, false, true);
         
         const isSelected = state.selectedElements.has(idx);
         item.innerHTML = `
@@ -211,11 +211,13 @@ export function renderElementsList() {
     
     // Auto-select selection adjustment
     if (state.filteredIndices.length > 0) {
-        const stillVisibleIdx = state.filteredIndices.indexOf(state.currentElementIndex);
-        if (stillVisibleIdx === -1) {
-            selectElement(state.filteredIndices[0]);
-        } else {
-            selectElement(state.currentElementIndex);
+        if (state.currentElementIndex !== -1) {
+            const stillVisibleIdx = state.filteredIndices.indexOf(state.currentElementIndex);
+            if (stillVisibleIdx === -1) {
+                selectElement(state.filteredIndices[0]);
+            } else {
+                selectElement(state.currentElementIndex);
+            }
         }
     }
     
@@ -226,13 +228,48 @@ export function filterElementsList() {
     renderElementsList();
 }
 
-export function selectElement(index, forceOpenModal = false) {
+export function deselectElement() {
+    state.currentElementIndex = -1;
+    
+    const items = document.querySelectorAll('.element-item');
+    items.forEach(it => it.classList.remove('active'));
+    
+    clearHighlightsInIframe();
+    
+    const detailElName = document.getElementById('detail-el-name');
+    if (detailElName) detailElName.textContent = "Component Name";
+    const detailElType = document.getElementById('detail-el-type');
+    if (detailElType) detailElType.textContent = "-";
+    const detailElMode = document.getElementById('detail-el-mode');
+    if (detailElMode) detailElMode.textContent = "-";
+    const detailElEvent = document.getElementById('detail-el-event');
+    if (detailElEvent) detailElEvent.textContent = "-";
+    
+    const locContainer = document.getElementById('detail-locators-container');
+    if (locContainer) locContainer.innerHTML = '';
+    
+    if (state.isModalOpen) {
+        window.closeDetailsModal();
+    }
+    
+    updateFloatNavButtons();
+    if (typeof window.updateRemoveButtonState === 'function') {
+        window.updateRemoveButtonState();
+    }
+}
+
+export function selectElement(index, forceOpenModal = false, allowDeselect = false) {
     if (state.currentPageIndex < 0 || !state.locatorsConfig.pages || state.locatorsConfig.pages.length === 0) return;
     
     const page = state.locatorsConfig.pages[state.currentPageIndex];
     const elements = page.elements;
     
     if (index < 0 || index >= elements.length) return;
+    
+    if (allowDeselect && index === state.currentElementIndex) {
+        deselectElement();
+        return;
+    }
     
     const items = document.querySelectorAll('.element-item');
     items.forEach(it => it.classList.remove('active'));
@@ -337,6 +374,7 @@ export function updateFloatNavButtons() {
 
 // Window exposure for onclick handlers and cross-module calls
 window.selectElement = selectElement;
+window.deselectElement = deselectElement;
 window.prevElement = prevElement;
 window.nextElement = nextElement;
 window.filterElementsList = filterElementsList;

@@ -52,11 +52,9 @@ window.addEventListener('load', async () => {
     window.addEventListener('scroll', lockScroll, { passive: true });
     document.addEventListener('scroll', lockScroll, { passive: true });
     
-    // Set up window resize handler for Auto Fit
+    // Set up window resize handler for Auto Fit and alignment update
     window.addEventListener('resize', () => {
-        if (state.isAutoFit) {
-            updateIframeZoom();
-        }
+        updateIframeZoom();
     });
     
     // Close modal on click outside content

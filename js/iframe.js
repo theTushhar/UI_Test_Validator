@@ -347,10 +347,20 @@ export function updateIframeZoom() {
         scale = state.manualZoom;
     }
     
-    scaler.style.width = `${state.logicalWidth}px`;
-    scaler.style.height = `${containerHeight / scale}px`;
-    scaler.style.transform = `scale(${scale})`;
-    scaler.style.transformOrigin = 'top left';
+    // Set layout dimensions of the parent scaler container to match its visually scaled size.
+    // This allows the browser layout engine to calculate centering, margins, and scrollbars accurately.
+    scaler.style.width = `${state.logicalWidth * scale}px`;
+    scaler.style.height = `${containerHeight}px`;
+    scaler.style.marginLeft = '0px'; // Handled natively by CSS margin: 0 auto
+    
+    // Scale the iframe inside the scaler container
+    const iframe = document.getElementById('preview-iframe');
+    if (iframe) {
+        iframe.style.width = `${state.logicalWidth}px`;
+        iframe.style.height = `${containerHeight / scale}px`;
+        iframe.style.transform = `scale(${scale})`;
+        iframe.style.transformOrigin = 'top left';
+    }
     
     document.getElementById('zoom-percentage').textContent = `${Math.round(scale * 100)}%`;
     
