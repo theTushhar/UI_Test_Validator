@@ -379,13 +379,19 @@ export function reloadIframe() {
 }
 
 export function clearCacheAndRefresh() {
-    const dbs = indexedDB.databases ? indexedDB.databases() : Promise.resolve([]);
-    dbs.then(list => {
-        list.forEach(db => indexedDB.deleteDatabase(db.name));
-        setTimeout(() => location.reload(true), 300);
-    }).catch(() => {
-        location.reload(true);
-    });
+    // Delete specifically our database to avoid wiping out other unrelated databases on this origin
+    indexedDB.deleteDatabase('LocatorVerifierDB');
+    
+    // Unregister any active service worker to ensure fresh loading of the application resources
+    if ('serviceWorker' in navigator) {
+        navigator.serviceWorker.getRegistrations().then(registrations => {
+            for (let registration of registrations) {
+                registration.unregister();
+            }
+        });
+    }
+    
+    setTimeout(() => location.reload(true), 300);
 }
 
 // Window exposure for HTML onclick handlers and cross-module calls

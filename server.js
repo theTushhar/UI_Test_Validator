@@ -71,28 +71,31 @@ function loadMapper() {
 function getMhtmlFilesRecursively(dir, baseDir, fileList = []) {
     if (!fs.existsSync(dir)) return fileList;
     
-    const files = fs.readdirSync(dir);
-    for (const file of files) {
-        const fullPath = path.join(dir, file);
-        const stat = fs.statSync(fullPath);
-        
-        if (stat.isDirectory()) {
-            const lowerFile = file.toLowerCase();
-            if (
-                lowerFile !== 'node_modules' &&
-                lowerFile !== '.git' &&
-                lowerFile !== '.gemini' &&
-                lowerFile !== '.agents' &&
-                lowerFile !== '__pycache__' &&
-                lowerFile !== 'frontend'
-            ) {
-                getMhtmlFilesRecursively(fullPath, baseDir, fileList);
+    try {
+        const entries = fs.readdirSync(dir, { withFileTypes: true });
+        for (const entry of entries) {
+            const fullPath = path.join(dir, entry.name);
+            
+            if (entry.isDirectory()) {
+                const lowerFile = entry.name.toLowerCase();
+                if (
+                    lowerFile !== 'node_modules' &&
+                    lowerFile !== '.git' &&
+                    lowerFile !== '.gemini' &&
+                    lowerFile !== '.agents' &&
+                    lowerFile !== '__pycache__' &&
+                    lowerFile !== 'frontend'
+                ) {
+                    getMhtmlFilesRecursively(fullPath, baseDir, fileList);
+                }
+            } else if (entry.isFile() && entry.name.endsWith('.mhtml')) {
+                let relPath = path.relative(baseDir, fullPath);
+                relPath = relPath.split(path.sep).join('/');
+                fileList.push(relPath);
             }
-        } else if (file.endsWith('.mhtml')) {
-            let relPath = path.relative(baseDir, fullPath);
-            relPath = relPath.split(path.sep).join('/');
-            fileList.push(relPath);
         }
+    } catch (e) {
+        console.error(`[Server] Error reading directory ${dir}:`, e);
     }
     return fileList;
 }
@@ -131,16 +134,17 @@ app.get('/api/files', (req, res) => {
     if (useMapper) {
         const mapper = loadMapper();
         const activeGroups = (mapper.test_groups || []).filter(g => g.active !== false);
-        const files = [];
+        const filesSet = new Set();
         
         for (const group of activeGroups) {
             const folder = group.folder || '';
             for (const mapping of (group.mappings || [])) {
                 const mhtmlFile = mapping.mhtml_file || '';
                 const fullPath = folder ? `${folder}/${mhtmlFile}` : mhtmlFile;
-                files.push(fullPath);
+                filesSet.add(fullPath);
             }
         }
+        const files = Array.from(filesSet);
         files.sort();
         return res.json(files);
     } else {

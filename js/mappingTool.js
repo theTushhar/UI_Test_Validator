@@ -282,8 +282,10 @@ export function autoMapBySuffix() {
         if (!p.mappedMhtml) {
             const pageClean = p.name.toLowerCase().replace(/[^a-z0-9]/g, '');
             const match = state.mappingState.mhtmlFiles.find(f => {
-                const fileClean = f.toLowerCase().replace(/[^a-z0-9]/g, '');
-                return fileClean.includes(pageClean) || pageClean.includes(fileClean.replace('mhtml', ''));
+                const dotIdx = f.lastIndexOf('.');
+                const base = dotIdx > 0 ? f.substring(0, dotIdx) : f;
+                const fileClean = base.toLowerCase().replace(/[^a-z0-9]/g, '');
+                return fileClean.includes(pageClean) || pageClean.includes(fileClean);
             });
             if (match) {
                 p.mappedMhtml = match;

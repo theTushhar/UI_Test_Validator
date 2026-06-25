@@ -148,9 +148,15 @@ class MHTMLArchiveBrowser {
             const encoding = (headers['content-transfer-encoding'] || '').toLowerCase();
             let payloadBytes;
             if (encoding === 'base64') {
-                const bodyStr = decoder.decode(bodyBuffer).replace(/\s+/g, '');
+                const bodyStr = decoder.decode(bodyBuffer);
                 try {
-                    const binaryStr = atob(bodyStr);
+                    let binaryStr;
+                    try {
+                        // Modern browsers atob ignores spaces/newlines. Try happy path first.
+                        binaryStr = atob(bodyStr);
+                    } catch (e) {
+                        binaryStr = atob(bodyStr.replace(/\s+/g, ''));
+                    }
                     payloadBytes = new Uint8Array(binaryStr.length);
                     for (let b = 0; b < binaryStr.length; b++) {
                         payloadBytes[b] = binaryStr.charCodeAt(b);
@@ -258,6 +264,14 @@ function decodeQuotedPrintableToUint8Array(uint8Array) {
     const out = new Uint8Array(len); // Max possible size
     let outIdx = 0;
     let i = 0;
+
+    const hexVal = (c) => {
+        if (c >= 48 && c <= 57) return c - 48; // '0'-'9'
+        if (c >= 65 && c <= 70) return c - 55; // 'A'-'F'
+        if (c >= 97 && c <= 102) return c - 87; // 'a'-'f'
+        return -1;
+    };
+
     while (i < len) {
         if (uint8Array[i] === 61) { // '=' character
             if (i + 1 < len && uint8Array[i + 1] === 13) { // '\r'
@@ -269,14 +283,10 @@ function decodeQuotedPrintableToUint8Array(uint8Array) {
             } else if (i + 1 < len && uint8Array[i + 1] === 10) { // '\n'
                 i += 2; // Skip soft line break "=\n"
             } else if (i + 2 < len) {
-                const hex1 = uint8Array[i + 1];
-                const hex2 = uint8Array[i + 2];
-                // Check if they are valid hex characters (0-9, A-F, a-f)
-                const isHex = (c) => (c >= 48 && c <= 57) || (c >= 65 && c <= 70) || (c >= 97 && c <= 102);
-                if (isHex(hex1) && isHex(hex2)) {
-                    const char1 = String.fromCharCode(hex1);
-                    const char2 = String.fromCharCode(hex2);
-                    out[outIdx++] = parseInt(char1 + char2, 16);
+                const val1 = hexVal(uint8Array[i + 1]);
+                const val2 = hexVal(uint8Array[i + 2]);
+                if (val1 !== -1 && val2 !== -1) {
+                    out[outIdx++] = (val1 << 4) | val2;
                     i += 3;
                 } else {
                     out[outIdx++] = uint8Array[i];

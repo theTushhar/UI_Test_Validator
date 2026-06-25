@@ -8,9 +8,18 @@ const path = require('path');
  * @returns {Buffer}
  */
 function decodeQuotedPrintableToBuffer(input) {
-    const out = [];
-    let i = 0;
     const len = input.length;
+    const out = Buffer.allocUnsafe(len);
+    let outIdx = 0;
+    let i = 0;
+
+    const hexVal = (c) => {
+        if (c >= 48 && c <= 57) return c - 48; // '0'-'9'
+        if (c >= 65 && c <= 70) return c - 55; // 'A'-'F'
+        if (c >= 97 && c <= 102) return c - 87; // 'a'-'f'
+        return -1;
+    };
+
     while (i < len) {
         if (input[i] === 61) { // '=' character
             if (i + 1 < len && input[i + 1] === 13) { // '\r'
@@ -22,29 +31,25 @@ function decodeQuotedPrintableToBuffer(input) {
             } else if (i + 1 < len && input[i + 1] === 10) { // '\n'
                 i += 2; // Skip soft line break "=\n"
             } else if (i + 2 < len) {
-                const hex1 = input[i + 1];
-                const hex2 = input[i + 2];
-                // Check if they are valid hex characters (0-9, A-F, a-f)
-                const isHex = (c) => (c >= 48 && c <= 57) || (c >= 65 && c <= 70) || (c >= 97 && c <= 102);
-                if (isHex(hex1) && isHex(hex2)) {
-                    const char1 = String.fromCharCode(hex1);
-                    const char2 = String.fromCharCode(hex2);
-                    out.push(parseInt(char1 + char2, 16));
+                const val1 = hexVal(input[i + 1]);
+                const val2 = hexVal(input[i + 2]);
+                if (val1 !== -1 && val2 !== -1) {
+                    out[outIdx++] = (val1 << 4) | val2;
                     i += 3;
                 } else {
-                    out.push(input[i]);
+                    out[outIdx++] = input[i];
                     i++;
                 }
             } else {
-                out.push(input[i]);
+                out[outIdx++] = input[i];
                 i++;
             }
         } else {
-            out.push(input[i]);
+            out[outIdx++] = input[i];
             i++;
         }
     }
-    return Buffer.from(out);
+    return out.subarray(0, outIdx);
 }
 
 class MHTMLArchive {
@@ -151,8 +156,8 @@ class MHTMLArchive {
             const encoding = (headers['content-transfer-encoding'] || '').toLowerCase();
             let payload;
             if (encoding === 'base64') {
-                const base64Str = bodyBuffer.toString('ascii').replace(/\s+/g, '');
-                payload = Buffer.from(base64Str, 'base64');
+                // Node's Buffer.from ignores whitespace automatically when decoding base64
+                payload = Buffer.from(bodyBuffer.toString('ascii'), 'base64');
             } else if (encoding === 'quoted-printable') {
                 payload = decodeQuotedPrintableToBuffer(bodyBuffer);
             } else {
