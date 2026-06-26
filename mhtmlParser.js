@@ -74,7 +74,19 @@ class MHTMLArchive {
         const headerStr = fileBuffer.toString('utf-8', 0, Math.min(fileBuffer.length, 5000));
         const boundaryMatch = headerStr.match(/boundary="?([^"\s;]+)"?/i) || headerStr.match(/boundary=([^\s;]+)/i);
         if (!boundaryMatch) {
-            console.error(`[MHTMLParser] Could not find boundary in MHTML file: ${filepath}`);
+            console.log(`[MHTMLParser] Could not find boundary in file: ${filepath}. Treating as plain HTML.`);
+            const baseName = path.basename(filepath);
+            const pathKey = '/' + baseName;
+            this.resources[pathKey] = fileBuffer;
+            this.contentTypeMap[pathKey] = 'text/html';
+            this.mainLocation = pathKey;
+            
+            try {
+                this.html = fileBuffer.toString('utf-8');
+            } catch (e) {
+                this.html = fileBuffer.toString('latin1');
+            }
+            this.locationMappings = [];
             return;
         }
         

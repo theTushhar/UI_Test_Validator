@@ -30,7 +30,26 @@ class MHTMLArchiveBrowser {
         const headerTextPart = decoder.decode(uint8Array.subarray(0, Math.min(uint8Array.length, 10000)));
         const boundaryMatch = headerTextPart.match(/boundary="?([^"\s;]+)"?/i) || headerTextPart.match(/boundary=([^\s;]+)/i);
         if (!boundaryMatch) {
-            throw new Error(`Could not find boundary in MHTML file: ${filename}`);
+            console.log(`[MHTMLParser] Could not find boundary in MHTML file: ${filename}. Treating as a plain HTML file.`);
+            const pathKey = '/' + filename;
+            const blob = new Blob([uint8Array], { type: 'text/html' });
+            
+            this.resources[pathKey] = { blob, contentType: 'text/html' };
+            this.mainLocation = pathKey;
+            this.locationMappings = [];
+            
+            try {
+                this.html = new TextDecoder('utf-8').decode(uint8Array);
+            } catch (e) {
+                this.html = new TextDecoder('windows-1252').decode(uint8Array);
+            }
+            
+            const parsedResources = [{ path: pathKey, blob, contentType: 'text/html' }];
+            return {
+                mainLocation: this.mainLocation,
+                locationMappings: this.locationMappings,
+                resources: parsedResources
+            };
         }
         
         const boundary = boundaryMatch[1];

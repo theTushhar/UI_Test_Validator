@@ -88,7 +88,7 @@ function getMhtmlFilesRecursively(dir, baseDir, fileList = []) {
                 ) {
                     getMhtmlFilesRecursively(fullPath, baseDir, fileList);
                 }
-            } else if (entry.isFile() && entry.name.endsWith('.mhtml')) {
+            } else if (entry.isFile() && (entry.name.endsWith('.mhtml') || (entry.name.endsWith('.html') && entry.name !== 'index.html'))) {
                 let relPath = path.relative(baseDir, fullPath);
                 relPath = relPath.split(path.sep).join('/');
                 fileList.push(relPath);
