@@ -15,43 +15,8 @@ export async function enterMappingMode() {
     const modalBox = document.getElementById('upload-modal-box');
     modalBox.classList.add('wide-modal');
     
-    // Scan IndexedDB for locator config keys and pick the latest
-    const db = await dbHelper.init();
-    const tx = db.transaction('config', 'readonly');
-    const store = tx.objectStore('config');
-    
-    let locatorKeys = [];
-    
-    await new Promise((resolve) => {
-        store.openKeyCursor().onsuccess = (e) => {
-            const cursor = e.target.result;
-            if (cursor) {
-                const key = cursor.key;
-                if (key.startsWith('locators||')) {
-                    locatorKeys.push(key);
-                }
-                cursor.continue();
-            } else {
-                resolve();
-            }
-        };
-    });
-    
-    if (locatorKeys.length === 0) {
-        alert("No JSON config found. Please upload a JSON config file first.");
-        exitMappingMode();
-        return;
-    }
-    
-    // Pick the latest key (most recent timestamp)
-    const latestKey = locatorKeys.sort((a, b) => {
-        const tsA = a.split('||')[1] || '';
-        const tsB = b.split('||')[1] || '';
-        return tsB.localeCompare(tsA);
-    })[0];
-    
-    const activeFolder = latestKey.split('||')[1] || 'root';
-    const locatorsData = await dbHelper.getConfig(latestKey);
+    const activeFolder = 'active';
+    const locatorsData = await dbHelper.getConfig(`locators||${activeFolder}`);
     
     if (!locatorsData) {
         alert("No JSON config found. Please upload a JSON config file first.");
@@ -63,32 +28,13 @@ export async function enterMappingMode() {
     const currentBatch = await dbHelper.getConfig('mhtml_batch') || [];
     
     if (mhtmlList) {
-        // Replace any stale entries: if a file in currentBatch has a _v{N} suffix
-        // that corresponds to an original name in mhtmlList, swap them.
-        const staleNames = [];
-        const updatedList = [...mhtmlList];
-        
-        for (const currentFile of currentBatch) {
-            const baseMatch = currentFile.match(/^(.+)_v(\d+)(\.mhtml)$/i);
-            if (baseMatch) {
-                const baseName = baseMatch[1] + baseMatch[3];
-                const idx = updatedList.indexOf(baseName);
-                if (idx !== -1) {
-                    staleNames.push(baseName);
-                    updatedList[idx] = currentFile;
-                }
-            }
-        }
-        
         // Add any genuinely new files not in the list
-        const finalSet = new Set(updatedList);
+        const finalSet = new Set(mhtmlList);
         for (const f of currentBatch) {
             if (!finalSet.has(f)) {
-                updatedList.push(f);
+                mhtmlList.push(f);
             }
         }
-        
-        mhtmlList = updatedList;
         await dbHelper.setConfig(`mhtml_batch||${activeFolder}`, mhtmlList);
     } else {
         // No association yet — use current batch and create the association.
@@ -159,13 +105,13 @@ export function renderMappingInterface() {
                 <span class="drag-handle">☰</span>
                 <input type="text" class="mhtml-rename-input" value="${escapeHtml(filename)}" 
                     onchange="renameMhtmlFile('${escapeJs(filename)}', this.value)" 
-                    style="flex: 1; padding: 3px 6px; font-size: 0.7rem; border-radius: 3px; border: 1px solid var(--border-glass); background: transparent;"
+                    class="flex-1 px-1.5 py-0.5 text-xs rounded border border-base-300 bg-transparent"
                     title="Rename MHTML file">
             `;
             mhtmlList.appendChild(badge);
         });
     } else {
-        mhtmlList.innerHTML = '<div style="font-size: 0.7rem; color: var(--text-muted); text-align: center; padding: 16px 0;">All MHTML files mapped</div>';
+        mhtmlList.innerHTML = '<div class="text-xs text-base-content/40 text-center py-4">All MHTML files mapped</div>';
     }
 
     // Render Pages Targets (Right Side - Drop Targets)
@@ -193,7 +139,7 @@ export function renderMappingInterface() {
         card.innerHTML = `
             <input type="text" class="mapping-page-input" value="${escapeHtml(p.name)}" 
                 onchange="renamePage(${idx}, this.value)" 
-                style="width: 100%; padding: 4px 8px; font-size: 0.75rem; font-weight: 600; border-radius: 3px; border: 1px solid var(--border-glass); margin-bottom: 4px;"
+                class="w-full px-2 py-1 text-xs font-semibold rounded border border-base-300 mb-1"
                 title="Rename page title">
             <div class="mapping-drop-slot" id="page-slot-${idx}">
                 ${slotContent}
@@ -333,9 +279,27 @@ export async function saveMappingConfig() {
         }
     });
     
-    const folderLabel = state.mappingState.folder === '' ? 'Default Test Group' :
-        state.mappingState.folder.startsWith('_v') ? `Test Group ${state.mappingState.folder.replace('_v', 'v')}` :
-        state.mappingState.folder;
+    // Analyze original locators config to detect schema version (v1 vs v2)
+    let isV2 = false;
+    if (locators && locators.pages && locators.pages.length > 0) {
+        const pageWithElements = locators.pages.find(p => p.elements && p.elements.length > 0);
+        if (pageWithElements) {
+            const firstEl = pageWithElements.elements[0];
+            isV2 = (firstEl.elementType !== undefined || firstEl.locator !== undefined);
+        }
+    }
+    const versionTag = isV2 ? 'v2' : 'v1';
+    
+    // Generate timestamp for when this workspace was saved
+    const now = new Date();
+    const year = now.getFullYear();
+    const month = String(now.getMonth() + 1).padStart(2, '0');
+    const day = String(now.getDate()).padStart(2, '0');
+    const hours = String(now.getHours()).padStart(2, '0');
+    const minutes = String(now.getMinutes()).padStart(2, '0');
+    const seconds = String(now.getSeconds()).padStart(2, '0');
+    const timestamp = `${year}-${month}-${day} ${hours}:${minutes}:${seconds}`;
+    const folderLabel = `Active Workspace (${versionTag}) - ${timestamp}`;
     
     const newGroup = {
         name: folderLabel,
@@ -344,11 +308,9 @@ export async function saveMappingConfig() {
         mappings: mappings
     };
     
-    let testGroups = state.mapperConfig.test_groups || [];
-    testGroups.push(newGroup);
-    
+    // Maintain only the single active workspace group (no history)
     const newMapperConfig = {
-        test_groups: testGroups
+        test_groups: [newGroup]
     };
     
     await dbHelper.setConfig('mapper', newMapperConfig);

@@ -27,10 +27,6 @@ export function setupIframeMessagePassing() {
                 window.enableInspectListeners();
             }
             
-            // Apply blocker styles based on checkbox state
-            const chk = document.getElementById('hide-blockers-chk');
-            applyBlockerStyles(chk.checked);
-            
             // Recalculate Zoom
             updateIframeZoom();
             
@@ -117,6 +113,25 @@ export function injectStyleSheetToIframe() {
             box-shadow: 0 0 15px rgba(239, 68, 68, 0.6) !important;
             cursor: crosshair !important;
         }
+        .parent-locator-highlight {
+            outline: 3px dashed #ea580c !important;
+            outline-offset: 4px !important;
+            background-color: rgba(234, 88, 12, 0.08) !important;
+            box-shadow: 0 0 15px rgba(234, 88, 12, 0.4), inset 0 0 0 9999px rgba(234, 88, 12, 0.1) !important;
+            transition: all 0.15s ease-in-out;
+            position: relative !important;
+            z-index: 9999960 !important;
+        }
+        tbody.parent-locator-highlight td,
+        tr.parent-locator-highlight td,
+        table.parent-locator-highlight td,
+        thead.parent-locator-highlight th,
+        tfoot.parent-locator-highlight td {
+            outline: 2px dashed #ea580c !important;
+            outline-offset: -2px !important;
+            background-color: rgba(234, 88, 12, 0.05) !important;
+            box-shadow: inset 0 0 0 9999px rgba(234, 88, 12, 0.08) !important;
+        }
         html, body {
             overflow: auto !important;
         }
@@ -131,6 +146,11 @@ export function clearHighlightsInIframe() {
     const highlighted = doc.querySelectorAll('.locator-highlight');
     highlighted.forEach(el => {
         el.classList.remove('locator-highlight');
+    });
+
+    const parentHighlighted = doc.querySelectorAll('.parent-locator-highlight');
+    parentHighlighted.forEach(el => {
+        el.classList.remove('parent-locator-highlight');
     });
 }
 
@@ -182,18 +202,112 @@ export function evaluateAllLocatorsInIframe() {
     if (!doc) return;
     
     const page = state.locatorsConfig.pages[state.currentPageIndex];
-    page.elements.forEach((el, idx) => {
-        let maxLocMatches = 0;
+
+    if (!state.isV2) {
+        page.elements.forEach((el, idx) => {
+            let maxLocMatches = 0;
+            
+            el.locators.forEach(loc => {
+                let matches = [];
+                const type = (loc.locator_type || '').toLowerCase();
+                if (type === 'css') {
+                    matches = findCSSMatches(loc.value, doc);
+                } else if (type === 'xpath') {
+                    matches = findXPathMatches(loc.value, doc);
+                }
+                loc.matched_count = matches.length;
+                
+                let visibleCount = 0;
+                matches.forEach(domEl => {
+                    if (isElementVisible(domEl)) {
+                        visibleCount++;
+                    }
+                });
+                loc.visible_count = visibleCount;
+                
+                if (matches.length > 0) {
+                    maxLocMatches = Math.max(maxLocMatches, matches.length);
+                    matches.forEach(domEl => {
+                        state.matchedDomElementsSet.add(domEl);
+                        
+                        let matchScore = 0;
+                        if (matches.length === 1) matchScore += 100;
+                        if (loc.preferred) matchScore += 50;
+                        matchScore += (loc.score || 0);
+                        
+                        const existing = state.domToElementMap.get(domEl);
+                        if (!existing || matchScore > existing.score) {
+                            state.domToElementMap.set(domEl, { idx, score: matchScore });
+                        }
+                    });
+                }
+            });
+            
+            el.matched_count = maxLocMatches;
+        });
+    } else {
+        // V2 evaluation (supporting relative locators and parent-child hierarchy)
+        const elementUuidToDomMatches = new Map();
         
-        el.locators.forEach(loc => {
-            let matches = [];
-            const type = (loc.locator_type || '').toLowerCase();
-            if (type === 'css') {
-                matches = findCSSMatches(loc.value, doc);
-            } else if (type === 'xpath') {
-                matches = findXPathMatches(loc.value, doc);
+        function resolveLocatorTemplate(locatorValue, locatorType) {
+            if (!locatorValue || !locatorValue.includes('{{variable}}')) {
+                return locatorValue || '';
             }
-            loc.matched_count = matches.length;
+            if (locatorType.toLowerCase() === 'xpath') {
+                return locatorValue.replace(/\[\s*\{\{variable\}\}\s*\]/g, '')
+                                   .replace(/\{\{variable\}\}/g, '*');
+            } else {
+                return locatorValue.replace(/\[\s*([a-zA-Z0-9_-]+)\s*=\s*['"]\{\{variable\}\}['"]\s*\]/g, '[$1]')
+                                   .replace(/\{\{variable\}\}/g, '');
+            }
+        }
+        
+        function getDomMatchesForElement(el) {
+            if (elementUuidToDomMatches.has(el.uuid)) {
+                return elementUuidToDomMatches.get(el.uuid);
+            }
+            
+            const locatorValue = resolveLocatorTemplate(el.locator, el.locatorType || '');
+            const locatorType = (el.locatorType || '').toLowerCase();
+            
+            let matches = [];
+            
+            if (!el.parent) {
+                if (locatorType === 'css') {
+                    matches = findCSSMatches(locatorValue, doc);
+                } else if (locatorType === 'xpath') {
+                    matches = findXPathMatches(locatorValue, doc);
+                }
+            } else {
+                const parentEl = page.elements.find(p => p.uuid === el.parent);
+                if (parentEl) {
+                    const parentMatches = getDomMatchesForElement(parentEl);
+                    parentMatches.forEach(parentDomNode => {
+                        let subMatches = [];
+                        if (locatorType === 'css') {
+                            try {
+                                subMatches = Array.from(parentDomNode.querySelectorAll(locatorValue));
+                            } catch(e) {}
+                        } else if (locatorType === 'xpath') {
+                            try {
+                                const results = doc.evaluate(locatorValue, parentDomNode, null, XPathResult.ORDERED_NODE_SNAPSHOT_TYPE, null);
+                                for (let i = 0; i < results.snapshotLength; i++) {
+                                    subMatches.push(results.snapshotItem(i));
+                                }
+                            } catch(e) {}
+                        }
+                        matches.push(...subMatches);
+                    });
+                }
+            }
+            
+            elementUuidToDomMatches.set(el.uuid, matches);
+            return matches;
+        }
+        
+        page.elements.forEach((el, idx) => {
+            const matches = getDomMatchesForElement(el);
+            el.matched_count = matches.length;
             
             let visibleCount = 0;
             matches.forEach(domEl => {
@@ -201,28 +315,76 @@ export function evaluateAllLocatorsInIframe() {
                     visibleCount++;
                 }
             });
-            loc.visible_count = visibleCount;
+            el.visible_count = visibleCount;
             
-            if (matches.length > 0) {
-                maxLocMatches = Math.max(maxLocMatches, matches.length);
-                matches.forEach(domEl => {
-                    state.matchedDomElementsSet.add(domEl);
-                    
-                    let matchScore = 0;
-                    if (matches.length === 1) matchScore += 100;
-                    if (loc.preferred) matchScore += 50;
-                    matchScore += (loc.score || 0);
-                    
-                    const existing = state.domToElementMap.get(domEl);
-                    if (!existing || matchScore > existing.score) {
-                        state.domToElementMap.set(domEl, { idx, score: matchScore });
+            matches.forEach(domEl => {
+                state.matchedDomElementsSet.add(domEl);
+                
+                let matchScore = 100;
+                if (matches.length === 1) matchScore += 100;
+                
+                const existing = state.domToElementMap.get(domEl);
+                if (!existing || matchScore > existing.score) {
+                    state.domToElementMap.set(domEl, { idx, score: matchScore });
+                }
+            });
+            
+            // Sync properties for rendering compatibility
+            el.type = el.elementType;
+            
+            el.locators = [
+                {
+                    locator_type: el.locatorType,
+                    value: el.locator,
+                    preferred: true,
+                    score: 100,
+                    strategy: el.parent ? 'relative' : 'document-root',
+                    matched_count: el.matched_count,
+                    visible_count: el.visible_count
+                }
+            ];
+            
+            if (el.dropdown_locators) {
+                const dl = el.dropdown_locators;
+                if (dl.native_select) {
+                    const val = resolveLocatorTemplate(dl.native_select.value, dl.native_select.locator_type);
+                    let subMatches = [];
+                    if (dl.native_select.locator_type.toLowerCase() === 'xpath') {
+                        subMatches = findXPathMatches(val, doc);
+                    } else {
+                        subMatches = findCSSMatches(val, doc);
                     }
-                });
+                    el.locators.push({
+                        locator_type: dl.native_select.locator_type,
+                        value: dl.native_select.value,
+                        preferred: false,
+                        score: 80,
+                        strategy: 'dropdown-native',
+                        matched_count: subMatches.length,
+                        visible_count: subMatches.filter(isElementVisible).length
+                    });
+                }
+                if (dl.options_panel) {
+                    const val = resolveLocatorTemplate(dl.options_panel.value, dl.options_panel.locator_type);
+                    let subMatches = [];
+                    if (dl.options_panel.locator_type.toLowerCase() === 'xpath') {
+                        subMatches = findXPathMatches(val, doc);
+                    } else {
+                        subMatches = findCSSMatches(val, doc);
+                    }
+                    el.locators.push({
+                        locator_type: dl.options_panel.locator_type,
+                        value: dl.options_panel.value,
+                        preferred: false,
+                        score: 60,
+                        strategy: 'dropdown-panel',
+                        matched_count: subMatches.length,
+                        visible_count: subMatches.filter(isElementVisible).length
+                    });
+                }
             }
         });
-        
-        el.matched_count = maxLocMatches;
-    });
+    }
 }
 
 export function highlightElementInIframe(element) {
@@ -232,32 +394,98 @@ export function highlightElementInIframe(element) {
     clearHighlightsInIframe();
     
     let matchedElements = [];
-    let preferredLoc = element.locators.find(l => l.preferred);
     
-    if (preferredLoc) {
-        const type = (preferredLoc.locator_type || '').toLowerCase();
-        if (type === 'css') {
-            matchedElements = findCSSMatches(preferredLoc.value, doc);
-        } else if (type === 'xpath') {
-            matchedElements = findXPathMatches(preferredLoc.value, doc);
-        }
-    }
-    
-    if (matchedElements.length === 0) {
-        for (let i = 0; i < element.locators.length; i++) {
-            const loc = element.locators[i];
-            let matches = [];
-            const type = (loc.locator_type || '').toLowerCase();
+    if (!state.isV2) {
+        let preferredLoc = element.locators.find(l => l.preferred);
+        
+        if (preferredLoc) {
+            const type = (preferredLoc.locator_type || '').toLowerCase();
             if (type === 'css') {
-                matches = findCSSMatches(loc.value, doc);
+                matchedElements = findCSSMatches(preferredLoc.value, doc);
             } else if (type === 'xpath') {
-                matches = findXPathMatches(loc.value, doc);
-            }
-            if (matches.length > 0) {
-                matchedElements = matches;
-                break;
+                matchedElements = findXPathMatches(preferredLoc.value, doc);
             }
         }
+        
+        if (matchedElements.length === 0) {
+            for (let i = 0; i < element.locators.length; i++) {
+                const loc = element.locators[i];
+                let matches = [];
+                const type = (loc.locator_type || '').toLowerCase();
+                if (type === 'css') {
+                    matches = findCSSMatches(loc.value, doc);
+                } else if (type === 'xpath') {
+                    matches = findXPathMatches(loc.value, doc);
+                }
+                if (matches.length > 0) {
+                    matchedElements = matches;
+                    break;
+                }
+            }
+        }
+    } else {
+        const page = state.locatorsConfig.pages[state.currentPageIndex];
+        
+        function resolveLocatorTemplate(locatorValue, locatorType) {
+            if (!locatorValue || !locatorValue.includes('{{variable}}')) {
+                return locatorValue || '';
+            }
+            if (locatorType.toLowerCase() === 'xpath') {
+                return locatorValue.replace(/\[\s*\{\{variable\}\}\s*\]/g, '')
+                                   .replace(/\{\{variable\}\}/g, '*');
+            } else {
+                return locatorValue.replace(/\[\s*([a-zA-Z0-9_-]+)\s*=\s*['"]\{\{variable\}\}['"]\s*\]/g, '[$1]')
+                                   .replace(/\{\{variable\}\}/g, '');
+            }
+        }
+        
+        function getDomMatches(el) {
+            const locatorValue = resolveLocatorTemplate(el.locator, el.locatorType || '');
+            const locatorType = (el.locatorType || '').toLowerCase();
+            let matches = [];
+            
+            if (!el.parent) {
+                if (locatorType === 'css') {
+                    matches = findCSSMatches(locatorValue, doc);
+                } else if (locatorType === 'xpath') {
+                    matches = findXPathMatches(locatorValue, doc);
+                }
+            } else {
+                const parentEl = page.elements.find(p => p.uuid === el.parent);
+                if (parentEl) {
+                    const parentMatches = getDomMatches(parentEl);
+                    parentMatches.forEach(parentDomNode => {
+                        let subMatches = [];
+                        if (locatorType === 'css') {
+                            try {
+                                subMatches = Array.from(parentDomNode.querySelectorAll(locatorValue));
+                            } catch(e) {}
+                        } else if (locatorType === 'xpath') {
+                            try {
+                                const results = doc.evaluate(locatorValue, parentDomNode, null, XPathResult.ORDERED_NODE_SNAPSHOT_TYPE, null);
+                                for (let i = 0; i < results.snapshotLength; i++) {
+                                    subMatches.push(results.snapshotItem(i));
+                                }
+                            } catch(e) {}
+                        }
+                        matches.push(...subMatches);
+                    });
+                }
+            }
+            return matches;
+        }
+        
+        if (element.parent) {
+            const parentEl = page.elements.find(p => p.uuid === element.parent);
+            if (parentEl) {
+                const parentMatches = getDomMatches(parentEl);
+                parentMatches.forEach(el => {
+                    el.classList.add('parent-locator-highlight');
+                });
+            }
+        }
+        
+        matchedElements = getDomMatches(element);
     }
     
     if (matchedElements.length > 0) {
@@ -268,8 +496,6 @@ export function highlightElementInIframe(element) {
         matchedElements[0].scrollIntoView({ behavior: 'smooth', block: 'center' });
     }
     
-    const chk = document.getElementById('hide-blockers-chk');
-    applyBlockerStyles(chk.checked);
 }
 
 export function findCSSMatches(css, doc) {
@@ -291,40 +517,6 @@ export function findXPathMatches(xpath, doc) {
         // Invalid XPath
     }
     return list;
-}
-
-export function onHideBlockersChanged() {
-    const chk = document.getElementById('hide-blockers-chk');
-    applyBlockerStyles(chk.checked);
-}
-
-export function applyBlockerStyles(hide) {
-    const doc = getIframeDocument();
-    if (!doc) return;
-    
-    let styleEl = doc.getElementById('blocker-style-injector');
-    if (hide) {
-        if (!styleEl) {
-            styleEl = doc.createElement('style');
-            styleEl.id = 'blocker-style-injector';
-            doc.head.appendChild(styleEl);
-        }
-        styleEl.textContent = `
-            .ui-widget-overlay, .ui-dialog-overlay, .ui-blockui, #cornerSpinnerLoading, .ui-dialog-docking-zone {
-                display: none !important;
-                pointer-events: none !important;
-            }
-            .ui-dialog:not(:has(.locator-highlight)), .ui-confirmdialog:not(:has(.locator-highlight)), #dialogBox:not(:has(.locator-highlight)) {
-                display: none !important;
-                visibility: hidden !important;
-                pointer-events: none !important;
-            }
-        `;
-    } else {
-        if (styleEl) {
-            styleEl.remove();
-        }
-    }
 }
 
 // Auto Fit & Zoom functionality
@@ -404,10 +596,35 @@ export function clearCacheAndRefresh() {
     setTimeout(() => location.reload(true), 300);
 }
 
+export function highlightSpecificLocatorInIframe(locatorType, value) {
+    const doc = getIframeDocument();
+    if (!doc) return;
+    
+    clearHighlightsInIframe();
+    
+    let matchedElements = [];
+    const type = (locatorType || '').toLowerCase();
+    
+    if (type === 'css') {
+        matchedElements = findCSSMatches(value, doc);
+    } else if (type === 'xpath') {
+        matchedElements = findXPathMatches(value, doc);
+    }
+    
+    if (matchedElements.length > 0) {
+        matchedElements.forEach(el => {
+            el.classList.add('locator-highlight');
+        });
+        
+        // Use smooth scrolling to scroll the element inside the preview iframe into viewport
+        matchedElements[0].scrollIntoView({ behavior: 'smooth', block: 'center' });
+    }
+}
+
 // Window exposure for HTML onclick handlers and cross-module calls
-window.onHideBlockersChanged = onHideBlockersChanged;
 window.adjustManualZoom = adjustManualZoom;
 window.toggleAutoFit = toggleAutoFit;
 window.reloadIframe = reloadIframe;
 window.clearCacheAndRefresh = clearCacheAndRefresh;
 window.evaluateAllLocatorsInIframe = evaluateAllLocatorsInIframe;
+window.highlightSpecificLocatorInIframe = highlightSpecificLocatorInIframe;

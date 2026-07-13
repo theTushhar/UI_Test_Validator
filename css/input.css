@@ -1,0 +1,16 @@
+@import "tailwindcss/base";
+@import "tailwindcss/components";
+
+@import './base.css';
+@import './layout.css';
+@import './elements.css';
+@import './detail-panel.css';
+@import './modals.css';
+@import './upload-modal.css';
+@import './mapping.css';
+@import './json-editor.css';
+@import './dashboard.css';
+@import './controls.css';
+@import './animations.css';
+
+@import "tailwindcss/utilities";

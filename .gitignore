@@ -23,3 +23,7 @@ locator_findings.json
 .DS_Store
 Thumbs.db
 desktop.ini
+
+# Compiled static assets
+css/dist/
+

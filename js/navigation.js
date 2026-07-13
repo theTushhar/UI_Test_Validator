@@ -161,7 +161,8 @@ export function populateFiltersDropdowns() {
     const modes = new Set();
 
     elements.forEach(el => {
-        if (el.type) types.add(el.type);
+        const type = el.type || el.elementType;
+        if (type) types.add(type);
         if (el.mode) modes.add(el.mode);
     });
 
@@ -241,6 +242,14 @@ export async function onStepChanged() {
         } else {
             state.locatorsConfig = { pages: [] };
         }
+
+        // Detect V2 schema
+        let isV2 = false;
+        if (state.locatorsConfig.pages && state.locatorsConfig.pages.length > 0) {
+            const elements = state.locatorsConfig.pages[0].elements || [];
+            isV2 = elements.some(el => el.elementType !== undefined || el.locator !== undefined);
+        }
+        state.isV2 = isV2;
 
         state.currentPageIndex = 0; // Filtered pages array only contains this single page
         state.currentElementIndex = 0;

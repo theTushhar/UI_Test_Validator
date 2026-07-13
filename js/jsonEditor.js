@@ -20,6 +20,10 @@ export function openJsonEditor() {
         state.jsonEditorState.originalJson = JSON.stringify(config, null, 2);
         state.jsonEditorState.currentJson = state.jsonEditorState.originalJson;
         state.jsonEditorState.isModified = false;
+        state.jsonEditorState.searchQuery = '';
+
+        const searchInput = document.getElementById('json-search-input');
+        if (searchInput) searchInput.value = '';
 
         const textarea = document.getElementById('json-editor-textarea');
         textarea.value = state.jsonEditorState.originalJson;
@@ -43,13 +47,14 @@ export function closeJsonEditor() {
     state.jsonEditorState.originalJson = null;
     state.jsonEditorState.currentJson = null;
     state.jsonEditorState.isModified = false;
+    state.jsonEditorState.searchQuery = '';
 }
 
 export function switchEditorView(view) {
     state.jsonEditorState.activeView = view;
 
-    document.getElementById('tab-raw').classList.toggle('active', view === 'raw');
-    document.getElementById('tab-form').classList.toggle('active', view === 'form');
+    document.getElementById('tab-raw').classList.toggle('tab-active', view === 'raw');
+    document.getElementById('tab-form').classList.toggle('tab-active', view === 'form');
 
     document.getElementById('json-editor-raw-view').style.display = view === 'raw' ? 'flex' : 'none';
     document.getElementById('json-editor-form-view').style.display = view === 'form' ? 'flex' : 'none';
@@ -57,8 +62,14 @@ export function switchEditorView(view) {
     if (view === 'raw') {
         const textarea = document.getElementById('json-editor-textarea');
         updateLineInfo(textarea);
+        if (state.jsonEditorState.searchQuery) {
+            onJsonSearchInput(state.jsonEditorState.searchQuery);
+        }
     } else if (view === 'form') {
         syncJsonToFormEditor();
+        if (state.jsonEditorState.searchQuery) {
+            renderFormEditor(state.jsonEditorState.searchQuery);
+        }
     }
 }
 
@@ -67,97 +78,176 @@ export function syncJsonToFormEditor() {
         const textarea = document.getElementById('json-editor-textarea');
         const config = JSON.parse(textarea.value);
         state.jsonEditorState.fullConfig = config;
-        renderFormEditor();
+        renderFormEditor(state.jsonEditorState.searchQuery || '');
     } catch (e) {
         alert("Cannot switch to Form Editor: JSON is invalid.\n\nFix the JSON errors first.");
         switchEditorView('raw');
     }
 }
 
-export function renderFormEditor() {
+export function renderFormEditor(filterQuery = '') {
     const container = document.getElementById('form-editor-container');
     const config = state.jsonEditorState.fullConfig;
 
     if (!config || !config.pages || config.pages.length === 0) {
         container.innerHTML = `
-            <div class="form-editor-placeholder">
-                <div class="placeholder-icon">📝</div>
+            <div class="flex flex-col items-center justify-center h-full text-base-content/40 text-sm gap-2">
+                <div class="text-3xl">&#x1F4DD;</div>
                 <div>No pages found in the locator configuration</div>
             </div>`;
         return;
     }
 
     let html = '';
+    const query = filterQuery.toLowerCase().trim();
 
     config.pages.forEach((page, pageIdx) => {
-        html += `<div class="form-section">`;
-        html += `<div class="form-section-title">Page: ${escapeHtml(page.name)}</div>`;
+        let pageHtml = '';
+        let matchedCount = 0;
 
         (page.elements || []).forEach((el, elIdx) => {
-            html += renderFormElement(el, pageIdx, elIdx);
+            const name = (el.name || '').toLowerCase();
+            const type = (el.type || el.elementType || '').toLowerCase();
+            const mode = (el.mode || '').toLowerCase();
+            const locatorsStr = el.locators ? el.locators.map(l => l.value).join(' ').toLowerCase() : '';
+            const locatorStrSingle = el.locator ? el.locator.toLowerCase() : '';
+
+            if (query && !name.includes(query) && !type.includes(query) && !mode.includes(query) && !locatorsStr.includes(query) && !locatorStrSingle.includes(query)) {
+                return;
+            }
+
+            matchedCount++;
+            pageHtml += renderFormElement(el, pageIdx, elIdx);
         });
 
-        html += `</div>`;
+        if (matchedCount > 0 || !query) {
+            html += `<div class="mb-5">`;
+            html += `<div class="text-xs font-bold text-base-content/40 uppercase tracking-wider mb-2.5 pb-1.5 border-b border-base-300">Page: ${escapeHtml(page.name)} (${matchedCount} elements)</div>`;
+            html += pageHtml;
+            html += `</div>`;
+        }
     });
 
-    container.innerHTML = html;
+    if (!html) {
+        container.innerHTML = `
+            <div class="flex flex-col items-center justify-center p-10 text-base-content/40 text-sm gap-2">
+                <div class="text-3xl">🔍</div>
+                <div>No elements match "${escapeHtml(filterQuery)}"</div>
+            </div>`;
+    } else {
+        container.innerHTML = html;
+    }
 }
 
 export function renderFormElement(el, pageIdx, elIdx) {
-    const preferredLocIdx = el.locators ? el.locators.findIndex(l => l.preferred) : -1;
+    if (!state.isV2) {
+        const preferredLocIdx = el.locators ? el.locators.findIndex(l => l.preferred) : -1;
 
-    let html = `
-        <div class="form-element-block" data-page="${pageIdx}" data-el="${elIdx}" style="margin-bottom: 14px; padding: 12px; border: 1px solid var(--border-glass); border-radius: var(--border-radius-sm); background: var(--bg-primary);">
-            <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 10px;">
-                <strong style="font-size: 0.82rem; color: var(--text-primary);">${escapeHtml(el.name)}</strong>
-                <span style="font-size: 0.7rem; color: var(--text-muted);">${el.type || 'element'} / ${el.mode || 'N/A'}</span>
+        let html = `
+            <div class="form-element-block mb-3 p-3 border border-base-300 rounded-lg bg-base-200" data-page="${pageIdx}" data-el="${elIdx}">
+                <div class="flex items-center justify-between mb-2.5">
+                    <strong class="text-sm font-semibold">${escapeHtml(el.name)}</strong>
+                    <span class="text-xs text-base-content/50">${el.type || 'element'} / ${el.mode || 'N/A'}</span>
+                </div>
+                <div class="grid grid-cols-2 gap-3">
+                    <div class="flex flex-col gap-1">
+                        <label class="text-xs font-semibold text-base-content/60">Name</label>
+                        <input class="input input-bordered input-sm" type="text" value="${escapeHtml(el.name)}" onchange="updateFormElementField(${pageIdx}, ${elIdx}, 'name', this.value)">
+                    </div>
+                    <div class="flex flex-col gap-1">
+                        <label class="text-xs font-semibold text-base-content/60">Type</label>
+                        <input class="input input-bordered input-sm" type="text" value="${escapeHtml(el.type || '')}" onchange="updateFormElementField(${pageIdx}, ${elIdx}, 'type', this.value)">
+                    </div>
+                    <div class="flex flex-col gap-1">
+                        <label class="text-xs font-semibold text-base-content/60">Mode</label>
+                        <input class="input input-bordered input-sm" type="text" value="${escapeHtml(el.mode || '')}" onchange="updateFormElementField(${pageIdx}, ${elIdx}, 'mode', this.value)">
+                    </div>
+                    <div class="flex flex-col gap-1">
+                        <label class="text-xs font-semibold text-base-content/60">Event</label>
+                        <input class="input input-bordered input-sm" type="text" value="${escapeHtml(el.event || '')}" onchange="updateFormElementField(${pageIdx}, ${elIdx}, 'event', this.value)">
+                    </div>
+                </div>`;
+
+        html += `<div class="mt-2.5"><div class="text-xs font-bold text-base-content/40 uppercase tracking-wider mb-1.5">Locators</div>`;
+
+        (el.locators || []).forEach((loc, locIdx) => {
+            const isPreferred = loc.preferred;
+            html += `
+                <div class="locator-form-row ${isPreferred ? 'preferred' : ''}">
+                    <div class="locator-form-fields">
+                        <select class="select select-bordered select-sm" onchange="updateFormLocatorField(${pageIdx}, ${elIdx}, ${locIdx}, 'locator_type', this.value)">
+                            <option value="css" ${loc.locator_type === 'css' ? 'selected' : ''}>CSS</option>
+                            <option value="xpath" ${loc.locator_type === 'xpath' ? 'selected' : ''}>XPath</option>
+                        </select>
+                        <input class="input input-bordered input-sm font-mono text-xs" type="text" value="${escapeHtml(loc.value)}" onchange="updateFormLocatorField(${pageIdx}, ${elIdx}, ${locIdx}, 'value', this.value)" title="Locator value">
+                        <select class="select select-bordered select-sm" onchange="updateFormLocatorField(${pageIdx}, ${elIdx}, ${locIdx}, 'preferred', this.value === 'true')" title="Preferred locator">
+                            <option value="false" ${!loc.preferred ? 'selected' : ''}>Normal</option>
+                            <option value="true" ${loc.preferred ? 'selected' : ''}>Preferred</option>
+                        </select>
+                    </div>
+                    <button class="btn btn-xs btn-ghost text-error shrink-0" onclick="removeFormLocator(${pageIdx}, ${elIdx}, ${locIdx})" title="Remove locator">
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+                    </button>
+                </div>`;
+        });
+
+        html += `<button class="btn btn-xs btn-outline border-dashed w-full mt-2 gap-1" onclick="addFormLocator(${pageIdx}, ${elIdx})">+ Add Locator</button>`;
+        html += `</div></div>`;
+
+        return html;
+    } else {
+        const config = state.jsonEditorState.fullConfig;
+        const page = config.pages[pageIdx];
+        
+        let parentOptionsHtml = `<option value="">-- No Parent (Root) --</option>`;
+        (page.elements || []).forEach(otherEl => {
+            if (otherEl.uuid !== el.uuid) {
+                const selectedAttr = (el.parent === otherEl.uuid) ? 'selected' : '';
+                parentOptionsHtml += `<option value="${otherEl.uuid}" ${selectedAttr}>${escapeHtml(otherEl.name)}</option>`;
+            }
+        });
+        
+        let html = `
+        <div class="form-element-block mb-3 p-3 border border-base-300 rounded-lg bg-base-200" data-page="${pageIdx}" data-el="${elIdx}">
+            <div class="flex items-center justify-between mb-2.5">
+                <strong class="text-sm font-semibold">${escapeHtml(el.name)}</strong>
+                <span class="text-xs text-base-content/50">${el.elementType || 'element'} / Event: ${el.event || 'N/A'}</span>
             </div>
             <div class="form-grid">
-                <div class="form-group">
-                    <label class="form-label">Name</label>
-                    <input class="form-input" type="text" value="${escapeHtml(el.name)}" onchange="updateFormElementField(${pageIdx}, ${elIdx}, 'name', this.value)">
+                <div class="flex flex-col gap-1">
+                        <label class="text-xs font-semibold text-base-content/60">Name</label>
+                        <input class="input input-bordered input-sm" type="text" value="${escapeHtml(el.name)}" onchange="updateFormElementField(${pageIdx}, ${elIdx}, 'name', this.value)">
                 </div>
-                <div class="form-group">
-                    <label class="form-label">Type</label>
-                    <input class="form-input" type="text" value="${escapeHtml(el.type || '')}" onchange="updateFormElementField(${pageIdx}, ${elIdx}, 'type', this.value)">
+                <div class="flex flex-col gap-1">
+                    <label class="text-xs font-semibold text-base-content/60">Element Type</label>
+                    <input class="input input-bordered input-sm" type="text" value="${escapeHtml(el.elementType || '')}" onchange="updateFormElementField(${pageIdx}, ${elIdx}, 'elementType', this.value)">
                 </div>
-                <div class="form-group">
-                    <label class="form-label">Mode</label>
-                    <input class="form-input" type="text" value="${escapeHtml(el.mode || '')}" onchange="updateFormElementField(${pageIdx}, ${elIdx}, 'mode', this.value)">
+                <div class="flex flex-col gap-1">
+                    <label class="text-xs font-semibold text-base-content/60">Event</label>
+                    <input class="input input-bordered input-sm" type="text" value="${escapeHtml(el.event || '')}" onchange="updateFormElementField(${pageIdx}, ${elIdx}, 'event', this.value)">
                 </div>
-                <div class="form-group">
-                    <label class="form-label">Event</label>
-                    <input class="form-input" type="text" value="${escapeHtml(el.event || '')}" onchange="updateFormElementField(${pageIdx}, ${elIdx}, 'event', this.value)">
-                </div>
-            </div>`;
-
-    html += `<div style="margin-top: 10px;"><div class="form-section-title" style="font-size: 0.72rem; margin-bottom: 6px;">Locators</div>`;
-
-    (el.locators || []).forEach((loc, locIdx) => {
-        const isPreferred = loc.preferred;
-        html += `
-            <div class="locator-form-row ${isPreferred ? 'preferred' : ''}">
-                <div class="locator-form-fields">
-                    <select class="form-select" onchange="updateFormLocatorField(${pageIdx}, ${elIdx}, ${locIdx}, 'locator_type', this.value)">
-                        <option value="css" ${loc.locator_type === 'css' ? 'selected' : ''}>CSS</option>
-                        <option value="xpath" ${loc.locator_type === 'xpath' ? 'selected' : ''}>XPath</option>
-                    </select>
-                    <input class="form-input mono" type="text" value="${escapeHtml(loc.value)}" onchange="updateFormLocatorField(${pageIdx}, ${elIdx}, ${locIdx}, 'value', this.value)" title="Locator value">
-                    <select class="form-select" onchange="updateFormLocatorField(${pageIdx}, ${elIdx}, ${locIdx}, 'preferred', this.value === 'true')" title="Preferred locator">
-                        <option value="false" ${!loc.preferred ? 'selected' : ''}>Normal</option>
-                        <option value="true" ${loc.preferred ? 'selected' : ''}>Preferred</option>
+                <div class="flex flex-col gap-1">
+                    <label class="text-xs font-semibold text-base-content/60">Parent Component</label>
+                    <select class="select select-bordered select-sm" onchange="updateFormElementField(${pageIdx}, ${elIdx}, 'parent', this.value || null)">
+                        ${parentOptionsHtml}
                     </select>
                 </div>
-                <button class="locator-remove-btn" onclick="removeFormLocator(${pageIdx}, ${elIdx}, ${locIdx})" title="Remove locator">
-                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
-                </button>
-            </div>`;
-    });
-
-    html += `<button class="locator-add-btn" onclick="addFormLocator(${pageIdx}, ${elIdx})">+ Add Locator</button>`;
-    html += `</div></div>`;
-
-    return html;
+            </div>
+            <div class="mt-2.5">
+                <div class="text-xs font-bold text-base-content/40 uppercase tracking-wider mb-1.5">Locator</div>
+                <div class="locator-form-row preferred">
+                    <div class="locator-form-fields grid grid-cols-[100px_1fr] gap-2 items-center">
+                        <select class="select select-bordered select-sm" onchange="updateFormElementField(${pageIdx}, ${elIdx}, 'locatorType', this.value)">
+                            <option value="CSS" ${String(el.locatorType).toUpperCase() === 'CSS' ? 'selected' : ''}>CSS</option>
+                            <option value="XPATH" ${String(el.locatorType).toUpperCase() === 'XPATH' ? 'selected' : ''}>XPath</option>
+                        </select>
+                        <input class="input input-bordered input-sm font-mono text-xs" type="text" value="${escapeHtml(el.locator || '')}" onchange="updateFormElementField(${pageIdx}, ${elIdx}, 'locator', this.value)" title="Locator value">
+                    </div>
+                </div>
+            </div>
+        </div>`;
+        return html;
+    }
 }
 
 export function updateFormElementField(pageIdx, elIdx, field, value) {
@@ -308,10 +398,10 @@ export function updateSaveHint() {
     const hint = document.getElementById('json-editor-save-hint');
     if (state.jsonEditorState.isModified) {
         hint.textContent = "Unsaved changes";
-        hint.style.color = 'var(--comment-color)';
+        hint.style.color = 'oklch(var(--wa))';
     } else {
         hint.textContent = "No changes";
-        hint.style.color = 'var(--text-muted)';
+        hint.style.color = 'oklch(var(--bc) / 0.5)';
     }
 }
 
@@ -492,6 +582,44 @@ if (textarea) {
     textarea.addEventListener('click', () => updateLineInfo(textarea));
 }
 
+export function onJsonSearchInput(query) {
+    state.jsonEditorState.searchQuery = query;
+    if (state.jsonEditorState.activeView === 'form') {
+        renderFormEditor(query);
+    } else {
+        const textarea = document.getElementById('json-editor-textarea');
+        const text = textarea.value;
+        
+        if (!query) {
+            const validation = validateJsonString(text);
+            updateJsonEditorStatus(validation.valid ? 'valid' : 'invalid', validation.valid ? 'Valid JSON' : 'Invalid JSON');
+            return;
+        }
+        
+        let count = 0;
+        let firstMatchIdx = -1;
+        let pos = text.toLowerCase().indexOf(query.toLowerCase());
+        while (pos !== -1) {
+            if (count === 0) firstMatchIdx = pos;
+            count++;
+            pos = text.toLowerCase().indexOf(query.toLowerCase(), pos + query.length);
+        }
+        
+        updateJsonEditorStatus('valid', `${count} matches found`);
+        
+        if (firstMatchIdx !== -1) {
+            textarea.focus();
+            textarea.setSelectionRange(firstMatchIdx, firstMatchIdx + query.length);
+            
+            // Scroll to selection
+            const line = text.substring(0, firstMatchIdx).split('\n').length;
+            const lineHeight = 18;
+            textarea.scrollTop = (line - 5) * lineHeight;
+            updateLineInfo(textarea);
+        }
+    }
+}
+
 // Window exposure
 window.openJsonEditor = openJsonEditor;
 window.closeJsonEditor = closeJsonEditor;
@@ -505,3 +633,4 @@ window.updateFormElementField = updateFormElementField;
 window.updateFormLocatorField = updateFormLocatorField;
 window.addFormLocator = addFormLocator;
 window.removeFormLocator = removeFormLocator;
+window.onJsonSearchInput = onJsonSearchInput;

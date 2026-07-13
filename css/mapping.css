@@ -1,45 +1,49 @@
-/* ========================================================
-   Visual Mapping View Styles (Compact Card View)
-   ======================================================== */
+/* Mapping Tool - Glassmorphism, premium badges and drag-and-drop visuals */
 .mapping-page-card {
-  background: rgba(255, 255, 255, 0.015);
-  border: 1px solid var(--border-glass);
-  border-radius: 6px;
-  padding: 8px 10px;
+  background: oklch(var(--b1) / 0.7);
+  border: 1.5px solid oklch(var(--bc) / 0.08);
+  border-radius: 12px;
+  padding: 12px;
   display: flex;
   flex-direction: column;
-  gap: 4px;
-  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08);
+  gap: 8px;
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  box-shadow: 0 4px 20px -5px oklch(var(--bc) / 0.04);
+  backdrop-filter: blur(10px);
 }
 
 .mapping-page-card:hover {
-  background: rgba(255, 255, 255, 0.03);
-  border-color: rgba(255, 255, 255, 0.12);
+  background: oklch(var(--b1) / 0.95);
+  border-color: oklch(var(--bc) / 0.15);
+  transform: translateY(-2px);
+  box-shadow: 0 10px 25px -10px oklch(var(--bc) / 0.1);
 }
 
 .mapping-page-card.dragover {
-  border-color: var(--accent-violet) !important;
-  background-color: rgba(124, 58, 237, 0.08) !important;
-  box-shadow: 0 0 12px rgba(124, 58, 237, 0.2) !important;
-  transform: scale(1.01);
+  border-color: oklch(var(--p)) !important;
+  background-color: oklch(var(--p) / 0.06) !important;
+  box-shadow: 0 0 15px 2px oklch(var(--p) / 0.15) !important;
+  transform: scale(1.02);
 }
 
 .mapping-drop-slot {
-  border: 1.5px dashed rgba(79, 70, 229, 0.25);
-  border-radius: 4px;
-  min-height: 30px;
+  border: 1.5px dashed oklch(var(--p) / 0.2);
+  border-radius: 8px;
+  min-height: 42px;
   display: flex;
   align-items: center;
   justify-content: center;
-  background: rgba(79, 70, 229, 0.02);
-  transition: var(--transition-smooth);
+  background: oklch(var(--p) / 0.01);
+  color: oklch(var(--bc) / 0.4);
+  font-size: 0.8rem;
+  font-weight: 500;
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
-.mapping-slot-placeholder {
-  font-size: 0.68rem;
-  color: var(--text-muted);
-  font-weight: 500;
+.mapping-drop-slot:hover {
+  background: oklch(var(--p) / 0.03);
+  border-color: oklch(var(--p) / 0.4);
+  color: oklch(var(--bc) / 0.6);
 }
 
 .mapped-mhtml-badge {
@@ -47,111 +51,147 @@
   display: flex;
   align-items: center;
   justify-content: space-between;
-  background: rgba(16, 185, 129, 0.06);
-  border: 1px solid rgba(16, 185, 129, 0.3);
-  border-radius: 4px;
-  padding: 4px 8px;
-  animation: slideIn 0.2s ease-out;
+  background: linear-gradient(135deg, oklch(var(--su) / 0.08) 0%, oklch(var(--su) / 0.03) 100%);
+  border: 1.5px solid oklch(var(--su) / 0.3);
+  color: oklch(var(--su));
+  border-radius: 8px;
+  padding: 6px 12px;
+  font-size: 0.8rem;
+  font-weight: 600;
+  box-shadow: 0 2px 8px -2px oklch(var(--su) / 0.15);
+  animation: slideIn 0.25s cubic-bezier(0.16, 1, 0.3, 1);
 }
 
 .mapped-mhtml-name {
-  font-size: 0.7rem;
-  font-weight: 600;
-  color: var(--match-color);
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
-  max-width: 85%;
+  margin-right: 8px;
 }
 
 .mapping-unlink-btn {
-  background: none;
+  background: transparent;
   border: none;
-  color: var(--text-muted);
-  font-size: 0.9rem;
-  font-weight: bold;
+  font-size: 1.15rem;
+  font-weight: 700;
+  color: oklch(var(--su) / 0.7);
   cursor: pointer;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  width: 18px;
-  height: 18px;
-  border-radius: 50%;
-  transition: var(--transition-smooth);
+  padding: 0 4px;
+  line-height: 1;
+  transition: all 0.2s ease;
 }
 
 .mapping-unlink-btn:hover {
-  color: var(--mismatch-color);
-  background: rgba(244, 63, 94, 0.1);
+  color: oklch(var(--su));
+  transform: scale(1.2) rotate(90deg);
 }
 
 .draggable-mhtml-badge {
   display: flex;
   align-items: center;
-  gap: 6px;
-  background: linear-gradient(
-    135deg,
-    rgba(0, 0, 0, 0.01) 0%,
-    rgba(0, 0, 0, 0.03) 100%
-  );
-  border: 1px solid var(--border-glass);
-  border-radius: 5px;
-  padding: 5px 8px;
+  gap: 8px;
+  background: linear-gradient(135deg, oklch(var(--b2) / 0.8) 0%, oklch(var(--b2) / 0.4) 100%);
+  border: 1px solid oklch(var(--bc) / 0.08);
+  border-radius: 8px;
+  padding: 8px 12px;
   cursor: grab;
   user-select: none;
-  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.03);
+  transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+  box-shadow: 0 2px 5px -1px oklch(var(--bc) / 0.05);
 }
 
 .draggable-mhtml-badge:hover {
-  background: rgba(79, 70, 229, 0.08);
-  border-color: rgba(99, 102, 241, 0.3);
-  transform: translateY(-1px);
-  box-shadow: 0 3px 8px rgba(0, 0, 0, 0.1);
+  background: oklch(var(--b2) / 0.95);
+  border-color: oklch(var(--p) / 0.35);
+  transform: translateY(-2px);
+  box-shadow: 0 8px 16px -6px oklch(var(--p) / 0.12);
 }
 
 .draggable-mhtml-badge:active {
   cursor: grabbing;
-  transform: scale(0.98);
+  transform: scale(0.97) translateY(0);
 }
 
 .drag-handle {
-  color: var(--text-muted);
-  font-size: 0.7rem;
-  margin-right: 2px;
-}
-
-.mapping-page-input {
-  background: rgba(255, 255, 255, 0.02) !important;
-  color: var(--text-primary) !important;
-  transition: var(--transition-smooth);
-}
-
-.mapping-page-input:focus {
-  background: var(--bg-secondary) !important;
-  border-color: var(--accent-color) !important;
-  box-shadow: 0 0 0 3px var(--accent-glow) !important;
+  color: oklch(var(--bc) / 0.3);
+  font-size: 0.9rem;
+  cursor: grab;
 }
 
 .mhtml-rename-input {
-  background: transparent !important;
-  color: var(--text-primary) !important;
-  transition: var(--transition-smooth);
+  flex: 1;
+  border: 1px solid transparent;
+  background: transparent;
+  padding: 2px 6px;
+  font-family: inherit;
+  font-size: 0.775rem;
+  font-weight: 600;
+  border-radius: 4px;
+  color: oklch(var(--bc) / 0.85);
+  transition: all 0.2s ease;
 }
 
 .mhtml-rename-input:focus {
-  background: var(--bg-secondary) !important;
-  border-color: var(--accent-color) !important;
-  box-shadow: 0 0 0 3px var(--accent-glow) !important;
+  outline: none;
+  background: oklch(var(--b1));
+  border-color: oklch(var(--p) / 0.4);
+  box-shadow: 0 0 0 2px oklch(var(--p) / 0.15);
+}
+
+.mapping-page-input {
+  width: 100%;
+  border: 1px solid transparent;
+  background: transparent;
+  padding: 4px 8px;
+  font-family: inherit;
+  font-size: 0.85rem;
+  font-weight: 700;
+  border-radius: 6px;
+  color: oklch(var(--bc));
+  transition: all 0.2s ease;
+  margin-bottom: 4px;
+}
+
+.mapping-page-input:focus {
+  outline: none;
+  background: oklch(var(--b1));
+  border-color: oklch(var(--p) / 0.4);
+  box-shadow: 0 0 0 2px oklch(var(--p) / 0.15);
+}
+
+.mapping-scroll-box {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 4px;
+}
+
+/* Premium Thin Scrollbars */
+.mapping-scroll-box::-webkit-scrollbar {
+  width: 5px;
+}
+
+.mapping-scroll-box::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.mapping-scroll-box::-webkit-scrollbar-thumb {
+  background: oklch(var(--bc) / 0.1);
+  border-radius: 10px;
+}
+
+.mapping-scroll-box::-webkit-scrollbar-thumb:hover {
+  background: oklch(var(--bc) / 0.2);
 }
 
 @keyframes slideIn {
   from {
     opacity: 0;
-    transform: translateY(-5px);
+    transform: translateY(-8px) scale(0.95);
   }
   to {
     opacity: 1;
-    transform: translateY(0);
+    transform: translateY(0) scale(1);
   }
 }
+

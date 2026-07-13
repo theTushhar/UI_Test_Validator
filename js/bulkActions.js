@@ -189,6 +189,7 @@ export async function exportLocatorJson() {
 // Window exposure
 window.toggleElementSelection = toggleElementSelection;
 window.toggleSelectAll = toggleSelectAll;
+window.updateRemoveButtonState = updateRemoveButtonState;
 window.removeSelectedElements = removeSelectedElements;
 window.closeConfirmRemoveModal = closeConfirmRemoveModal;
 window.confirmRemoveElements = confirmRemoveElements;

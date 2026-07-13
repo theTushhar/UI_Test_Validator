@@ -1,59 +1,6 @@
+/* Animations */
 @keyframes float {
-  0% {
-    transform: translateY(0px);
-  }
-  50% {
-    transform: translateY(-8px);
-  }
-  100% {
-    transform: translateY(0px);
-  }
-}
-
-/* ========================================================
-   Ambient Glow Background Blobs
-   ======================================================== */
-.ambient-glow {
-  position: absolute;
-  border-radius: 50%;
-  filter: blur(120px);
-  opacity: 0.12;
-  z-index: 0;
-  pointer-events: none;
-}
-
-.orb-1 {
-  width: 450px;
-  height: 450px;
-  background: radial-gradient(circle, #6366f1 0%, #8b5cf6 100%);
-  top: -120px;
-  left: -120px;
-  animation: floatOrb1 20s ease-in-out infinite alternate;
-}
-
-.orb-2 {
-  width: 550px;
-  height: 550px;
-  background: radial-gradient(circle, #8b5cf6 0%, #ec4899 100%);
-  bottom: -180px;
-  right: -180px;
-  animation: floatOrb2 25s ease-in-out infinite alternate;
-}
-
-@keyframes floatOrb1 {
-  0% {
-    transform: translate(0, 0) scale(1);
-  }
-  100% {
-    transform: translate(100px, 60px) scale(1.15);
-  }
-}
-
-@keyframes floatOrb2 {
-  0% {
-    transform: translate(0, 0) scale(1);
-  }
-  100% {
-    transform: translate(-120px, -80px) scale(1.2);
-  }
+  0% { transform: translateY(0px); }
+  50% { transform: translateY(-8px); }
+  100% { transform: translateY(0px); }
 }

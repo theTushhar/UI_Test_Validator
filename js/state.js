@@ -16,6 +16,7 @@ export const state = {
     isAutoFit: true,
     manualZoom: 1.0,
     logicalWidth: 1440,
+    isV2: false,
     jsonEditorState: {
         originalJson: null,
         currentJson: null,
@@ -32,12 +33,6 @@ export async function initApp() {
     await loadMapperConfig();
     if (window.populateGroupsDropdown) {
         window.populateGroupsDropdown();
-    }
-    
-    if (!state.mapperConfig.test_groups || state.mapperConfig.test_groups.length === 0) {
-        setTimeout(() => {
-            if (window.openUploadModal) window.openUploadModal();
-        }, 600);
     }
 }
 

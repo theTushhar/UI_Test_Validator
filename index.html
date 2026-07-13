@@ -1,131 +1,116 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="en" data-theme="light">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Locator & DOM Verifier Workspace</title>
     <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="css/base.css">
-    <link rel="stylesheet" href="css/layout.css">
-    <link rel="stylesheet" href="css/elements.css">
-    <link rel="stylesheet" href="css/detail-panel.css">
-    <link rel="stylesheet" href="css/modals.css">
-    <link rel="stylesheet" href="css/upload-modal.css">
-    <link rel="stylesheet" href="css/mapping.css">
-    <link rel="stylesheet" href="css/json-editor.css">
-    <link rel="stylesheet" href="css/dashboard.css">
-    <link rel="stylesheet" href="css/controls.css">
-    <link rel="stylesheet" href="css/animations.css">
+    <link rel="stylesheet" href="css/dist/style.css">
 </head>
 <body>
+    <!-- Global Drag and Drop Overlay -->
+    <div id="global-drag-overlay" class="global-drag-overlay" style="display: none;">
+        <div class="global-drag-content">
+            <div class="text-6xl mb-4 text-white animate-bounce">📥</div>
+            <h2 class="text-2xl font-bold text-white">Drop to Import Workspace</h2>
+            <p class="text-sm text-white/70 mt-1">JSON configuration & MHTML screens</p>
+        </div>
+    </div>
+
+    <!-- Hidden Unified File Input -->
+    <input type="file" id="unified-file-input" multiple accept=".json,.mhtml,.html" style="display: none;" onchange="handleUnifiedFilesSelected(event)">
+
     <div class="app-container">
-        <!-- Ambient floating blur blobs for premium glassmorphism background -->
-        <div class="ambient-glow orb-1"></div>
-        <div class="ambient-glow orb-2"></div>
         
         <!-- Left Sidebar: Elements Navigation -->
-        <aside class="left-sidebar">
-            <div class="sidebar-header">
-                <h1 class="app-title">
+        <aside class="left-sidebar bg-base-100 border-r border-base-300 shadow-sm">
+            <div class="p-4 border-b border-base-300 bg-base-200">
+                <h1 class="text-base font-bold flex items-center gap-2 mb-3 text-base-content">
                     <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
                         <path d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/>
                     </svg>
                     <span>DOM Locator Verifier</span>
                 </h1>
                 
-                <button id="btn-open-upload" class="control-btn upload-db-btn" onclick="openUploadModal()" style="width: 100%; margin-bottom: 12px; display: flex; align-items: center; justify-content: center; gap: 8px;">
+                <button id="btn-open-upload" class="btn btn-sm btn-outline btn-primary w-full gap-2" onclick="openUploadModal()">
                     <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
                         <path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4M17 8l-5-5-5 5M12 3v12"/>
                     </svg>
                     <span>Manage Workspace Data</span>
                 </button>
                 
-                <div class="dropdown-group">
-                    <div class="control-wrapper">
-                        <label class="control-label" for="group-select">1. Choose Test Group</label>
-                        <div style="display: flex; gap: 6px; align-items: flex-end;">
-                            <div class="select-container" style="flex: 1;">
-                                <select id="group-select" onchange="onGroupChanged()">
-                                    <option value="">-- Load a test group --</option>
-                                </select>
-                            </div>
-                            <button id="btn-delete-group" class="btn-danger-outline" onclick="confirmDeleteGroup()" title="Delete selected group" style="display: none; padding: 10px 10px; font-size: 0.75rem; min-width: auto;">
-                                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M3 6h18M19 6v14a2 2 0 01-2 2H7a2 2 0 01-2-2V6m3 0V4a2 2 0 012-2h4a2 2 0 012 2v2"/></svg>
-                            </button>
-                        </div>
+                <div class="mt-3">
+                    <!-- Hidden Group selection (using active workspace default) -->
+                    <div style="display: none;">
+                        <select id="group-select" onchange="onGroupChanged()">
+                            <option value="">-- Load a test group --</option>
+                        </select>
+                        <button id="btn-delete-group" onclick="confirmDeleteGroup()"></button>
                     </div>
-                    <div class="control-wrapper">
-                        <label class="control-label" for="step-select">2. Choose Step / Screen</label>
-                        <div class="select-container">
-                            <select id="step-select" onchange="onStepChanged()" disabled>
-                                <option value="">-- Select a step --</option>
-                            </select>
-                        </div>
+                    <div>
+                        <label class="text-xs font-bold uppercase tracking-wider text-base-content/60 block mb-2" for="step-select">Choose Step / Screen</label>
+                        <select id="step-select" class="select select-bordered select-sm w-full" onchange="onStepChanged()" disabled>
+                            <option value="">-- Select a step --</option>
+                        </select>
                     </div>
                 </div>
             </div>
             
             <!-- Statistics summary -->
-            <div class="stats-panel">
-                <div class="stat-card stat-total-card">
-                    <div class="stat-val" id="stat-total">0</div>
-                    <div class="stat-label">Total</div>
+            <div class="grid grid-cols-3 gap-1.5 p-3 border-b border-base-300">
+                <div class="stat-card text-center p-2 rounded-lg border border-base-300 bg-base-200 hover:bg-base-300 transition-all">
+                    <div class="font-mono text-base font-bold" id="stat-total">0</div>
+                    <div class="text-xs font-bold uppercase text-base-content/60">Total</div>
                 </div>
-                <div class="stat-card stat-matched-card">
-                    <div class="stat-val" id="stat-matched">0</div>
-                    <div class="stat-label">Visible</div>
+                <div class="stat-card text-center p-2 rounded-lg border border-success/30 bg-success/10 text-success hover:bg-success/20 transition-all">
+                    <div class="font-mono text-base font-bold" id="stat-matched">0</div>
+                    <div class="text-xs font-bold uppercase">Visible</div>
                 </div>
-                <div class="stat-card stat-mismatched-card">
-                    <div class="stat-val" id="stat-mismatched">0</div>
-                    <div class="stat-label">Failed / Hidden</div>
+                <div class="stat-card text-center p-2 rounded-lg border border-error/30 bg-error/10 text-error hover:bg-error/20 transition-all">
+                    <div class="font-mono text-base font-bold" id="stat-mismatched">0</div>
+                    <div class="text-xs font-bold uppercase">Failed / Hidden</div>
                 </div>
             </div>
             
             <!-- Search & Filters -->
-            <div class="filters-container">
-                <div class="filter-row">
-                    <input type="text" id="search-input" class="search-input" placeholder="Search by name..." oninput="filterElementsList()">
+            <div class="p-3 border-b border-base-300">
+                <div class="mb-1.5">
+                    <input type="text" id="search-input" class="input input-bordered input-sm w-full pl-9" placeholder="Search by name..." oninput="filterElementsList()" style="background-image: url(&quot;data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 24 24' stroke='%2364748b' stroke-width='2.5'%3E%3Cpath stroke-linecap='round' stroke-linejoin='round' d='M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z'/%3E%3C/svg%3E&quot;); background-repeat: no-repeat; background-position: 10px center; background-size: 14px;">
                 </div>
-                <div class="filter-grid">
-                    <div class="filter-wrapper">
-                        <select id="filter-type" onchange="filterElementsList()">
-                            <option value="">All Types</option>
-                        </select>
-                    </div>
-                    <div class="filter-wrapper">
-                        <select id="filter-mode" onchange="filterElementsList()">
-                            <option value="">All Modes</option>
-                        </select>
-                    </div>
-                    <div class="filter-wrapper">
-                        <select id="filter-status" onchange="filterElementsList()">
-                            <option value="">All Statuses</option>
-                            <option value="matched">Matched & Visible</option>
-                            <option value="mismatched">Failed / No Match</option>
-                            <option value="unchecked">Matched but Hidden</option>
-                        </select>
-                    </div>
+                <div class="grid grid-cols-3 gap-1.5">
+                    <select id="filter-type" class="select select-bordered select-xs" onchange="filterElementsList()">
+                        <option value="">All Types</option>
+                    </select>
+                    <select id="filter-mode" class="select select-bordered select-xs" onchange="filterElementsList()">
+                        <option value="">All Modes</option>
+                    </select>
+                    <select id="filter-status" class="select select-bordered select-xs" onchange="filterElementsList()">
+                        <option value="">All Statuses</option>
+                        <option value="matched">Matched & Visible</option>
+                        <option value="mismatched">Failed / No Match</option>
+                        <option value="unchecked">Matched but Hidden</option>
+                    </select>
                 </div>
             </div>
             
-            <div class="filter-results-summary" id="filter-results-summary" style="display: none;">
+            <div id="filter-results-summary" class="px-4 py-1.5 text-xs font-bold text-base-content/60 border-b border-base-300" style="display: none;">
                 Showing 0 of 0 elements
             </div>
             
             <!-- Bulk Actions Toolbar -->
-            <div class="bulk-actions-toolbar" id="bulk-actions-toolbar" style="display: none;">
-                <input type="checkbox" id="btn-select-all" class="select-all-checkbox" onclick="toggleSelectAll()" title="Select All / Deselect All">
-                <div class="bulk-actions-buttons">
-                    <button id="btn-remove-selected" class="bulk-btn bulk-btn-remove" onclick="removeSelectedElements()" disabled>
+            <div id="bulk-actions-toolbar" class="flex items-center justify-between px-3 py-1.5 mx-2 mb-1 bg-primary/5 border border-primary/10 rounded-lg" style="display: none;">
+                <input type="checkbox" id="btn-select-all" class="checkbox checkbox-sm checkbox-primary" onclick="toggleSelectAll()" title="Select All / Deselect All">
+                <div class="flex items-center gap-1.5">
+                    <button id="btn-remove-selected" class="btn btn-xs btn-ghost text-error gap-1" onclick="removeSelectedElements()" disabled>
                         <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M3 6h18M19 6v14a2 2 0 01-2 2H7a2 2 0 01-2-2V6m3 0V4a2 2 0 012-2h4a2 2 0 012 2v2"/><line x1="10" y1="11" x2="10" y2="17"/><line x1="14" y1="11" x2="14" y2="17"/></svg>
                         <span>Remove</span>
-                        <span class="remove-count-badge" id="remove-count-badge">0</span>
+                        <span class="badge badge-xs badge-primary" id="remove-count-badge">0</span>
                     </button>
-                    <button id="btn-export-json" class="bulk-btn" onclick="exportLocatorJson()" title="Export full locator JSON">
+                    <button id="btn-export-json" class="btn btn-xs btn-ghost gap-1" onclick="exportLocatorJson()" title="Export full locator JSON">
                         <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4M7 10l5 5 5-5M12 15V3"/></svg>
                         <span>Export</span>
                     </button>
-                    <button class="bulk-btn" onclick="openJsonEditor()" title="Edit locator JSON live">
+                    <button class="btn btn-xs btn-ghost gap-1" onclick="openJsonEditor()" title="Edit locator JSON live">
                         <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M11 4H4a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 013 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
                         <span>Edit</span>
                     </button>
@@ -133,51 +118,46 @@
             </div>
             
             <!-- Elements Navigation List -->
-            <div class="element-list" id="element-list">
-                <div class="placeholder-view">
-                    <div class="placeholder-icon">📋</div>
-                    <div>Select a test group and step to load elements</div>
+            <div class="flex-1 overflow-y-auto p-2 flex flex-col gap-1 min-h-0" id="element-list">
+                <div class="flex flex-col items-center justify-center gap-4 p-10 text-base-content/50 border-2 border-dashed border-base-300 rounded-lg">
+                    <div class="text-4xl opacity-35" style="animation: float 3s ease-in-out infinite;">&#x1F4CB;</div>
+                    <div class="text-sm">Select a test group and step to load elements</div>
                 </div>
             </div>
         </aside>
 
         <!-- Middle Column: Iframe Preview -->
         <main class="main-content">
-            <header class="top-bar">
-                <div class="loaded-file-name" id="loaded-file-indicator" title="No MHTML File Active">No MHTML File Active</div>
+            <header class="h-16 bg-base-100 backdrop-blur-xl border-b border-base-300 px-6 flex justify-between items-center z-5 relative">
+                <div class="flex items-center gap-2 max-w-[250px] text-sm font-semibold text-base-content/60 whitespace-nowrap overflow-hidden text-ellipsis" id="loaded-file-indicator" title="No MHTML File Active">
+                    <span class="w-2 h-2 rounded-full bg-primary shrink-0"></span>
+                    No MHTML File Active
+                </div>
                 
                 <!-- Center Navigation -->
-                <div class="nav-bar">
-                    <button id="btn-prev" class="nav-btn" onclick="navigateSteps(-1)" disabled title="Previous Step (HotKey: [ )">
+                <div class="flex items-center gap-3">
+                    <button id="btn-prev" class="btn btn-circle btn-sm btn-ghost" onclick="navigateSteps(-1)" disabled title="Previous Step (HotKey: [ )">
                         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M15 19l-7-7 7-7"/></svg>
                     </button>
-                    <span class="nav-label" id="nav-label">No group selected</span>
-                    <button id="btn-next" class="nav-btn" onclick="navigateSteps(1)" disabled title="Next Step (HotKey: ] )">
+                    <span class="text-sm font-semibold text-base-content px-4 py-1.5 bg-primary/5 border border-base-300 rounded-full min-w-[220px] max-w-[320px] text-center whitespace-nowrap overflow-hidden text-ellipsis" id="nav-label">No group selected</span>
+                    <button id="btn-next" class="btn btn-circle btn-sm btn-ghost" onclick="navigateSteps(1)" disabled title="Next Step (HotKey: ] )">
                         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M9 5l7 7-7 7"/></svg>
                     </button>
                 </div>
 
                 <!-- Right Side Controls -->
-                <div class="iframe-controls">
-                    <label class="verified-checkbox-row toggle-switch-label" title="Hide blocking dialogs and spinner overlays in the preview page">
-                        <input type="checkbox" id="hide-blockers-chk" checked onchange="onHideBlockersChanged()">
-                        <span class="toggle-switch"></span>
-                        <span class="toggle-label-text">Hide Overlays</span>
-                    </label>
-                    
-                    <span class="divider"></span>
-                    
-                    <!-- Desktop View & Zoom Controls -->
-                    <div class="zoom-controls">
-                        <button class="zoom-btn" onclick="adjustManualZoom(-0.05)" title="Zoom Out">-</button>
-                        <span class="zoom-display" id="zoom-percentage">100%</span>
-                        <button class="zoom-btn" onclick="adjustManualZoom(0.05)" title="Zoom In">+</button>
-                        <button id="btn-autofit" class="control-btn active" onclick="toggleAutoFit()" title="Toggle Auto Fit to viewport width">Auto Fit</button>
+                <div class="flex gap-3.5 items-center">
+                    <!-- Zoom Controls -->
+                    <div class="flex items-center border border-base-300 rounded-lg p-0.5">
+                        <button class="btn btn-xs btn-ghost" onclick="adjustManualZoom(-0.05)" title="Zoom Out">-</button>
+                        <span class="font-mono text-xs font-semibold px-2.5 min-w-[45px] text-center" id="zoom-percentage">100%</span>
+                        <button class="btn btn-xs btn-ghost" onclick="adjustManualZoom(0.05)" title="Zoom In">+</button>
+                        <button id="btn-autofit" class="btn btn-xs btn-active" onclick="toggleAutoFit()" title="Toggle Auto Fit to viewport width">Auto Fit</button>
                     </div>
 
-                    <span class="divider"></span>
+                    <div class="w-px h-6 bg-base-300"></div>
                     
-                    <button id="btn-inspect" class="control-btn" onclick="toggleInspectMode()" title="Toggle Inspect Element Mode">
+                    <button id="btn-inspect" class="btn btn-sm btn-ghost gap-1.5" onclick="toggleInspectMode()" title="Toggle Inspect Element Mode">
                         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
                             <circle cx="11" cy="11" r="8"></circle>
                             <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
@@ -187,30 +167,30 @@
                         <span>Inspect</span>
                     </button>
 
-                    <span class="divider"></span>
+                    <div class="w-px h-6 bg-base-300"></div>
                     
-                    <button onclick="reloadIframe()" class="control-btn icon-btn" title="Reload Frame">
+                    <button onclick="reloadIframe()" class="btn btn-sm btn-ghost gap-1.5" title="Reload Frame">
                         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
                             <path d="M21.5 2v6h-6M21.34 15.57a10 10 0 11-.57-8.38l.73-.72"/>
                         </svg>
                         <span>Reload</span>
                     </button>
 
-                    <button onclick="clearCacheAndRefresh()" class="control-btn icon-btn" title="Clear Cache & Hard Refresh" style="color: var(--mismatch-color);">
-                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
-                            <path d="M3 6h18M19 6v14a2 2 0 01-2 2H7a2 2 0 01-2-2V6m3 0V4a2 2 0 012-2h4a2 2 0 012 2v2"/>
+                    <button onclick="clearCacheAndRefresh()" class="btn btn-sm btn-ghost gap-1.5 text-error" title="Clear Cache & Hard Reset">
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                            <polyline points="3 6 5 6 21 6"></polyline>
+                            <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path>
                         </svg>
-                        <span>Clear</span>
+                        <span>Reset Workspace</span>
                     </button>
                 </div>
             </header>
 
             <div class="iframe-container" id="iframe-container-box">
-                <!-- Gorgeous Dashboard Welcome View when no MHTML file is loaded -->
-                <div id="welcome-dashboard" class="welcome-dashboard">
-                    <div class="dashboard-backdrop-glow"></div>
-                    <div class="dashboard-card">
-                        <div class="dashboard-logo">
+                <!-- Dashboard Welcome View -->
+                <div id="welcome-dashboard" class="welcome-dashboard flex flex-col items-center justify-center p-10 bg-base-200">
+                    <div class="dashboard-card bg-base-100 border border-base-300 rounded-xl p-12 max-w-[680px] w-full text-center shadow-lg flex flex-col items-center">
+                        <div class="w-20 h-20 rounded-lg bg-base-200 border border-base-300 flex items-center justify-center mb-6 hover:scale-[1.03] transition-all">
                             <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="url(#logo-grad)" stroke-width="2.5">
                                 <defs>
                                     <linearGradient id="logo-grad" x1="0%" y1="0%" x2="100%" y2="100%">
@@ -222,52 +202,45 @@
                                 <path d="M8 11h6M11 8v6" stroke-linecap="round"/>
                             </svg>
                         </div>
-                        <h2 class="dashboard-title">DOM Locator Verifier</h2>
-                        <p class="dashboard-subtitle">Verify selectors, locators, and DOM targets in MHTML offline in your browser.</p>
+                        <h2 class="text-2xl font-extrabold tracking-tight text-base-content mb-3">DOM Locator Verifier</h2>
+                        <p class="text-sm text-base-content/60 leading-relaxed mb-9 max-w-[500px]">Verify selectors, locators, and DOM targets in MHTML offline in your browser.</p>
                         
-                        <div class="dashboard-stats-grid">
-                            <div class="db-stat-box">
-                                <div class="db-stat-num" id="db-stat-groups">0</div>
-                                <div class="db-stat-lbl">Test Groups</div>
+                        <div class="grid grid-cols-3 gap-4 w-full mb-9">
+                            <div class="stat-card-premium">
+                                <div class="font-mono text-2xl font-bold" id="db-stat-groups">0</div>
+                                <div class="text-xs font-bold uppercase tracking-wider text-base-content/60 mt-1.5">Test Groups</div>
                             </div>
-                            <div class="db-stat-box">
-                                <div class="db-stat-num" id="db-stat-screens">0</div>
-                                <div class="db-stat-lbl">MHTML Screens</div>
+                            <div class="stat-card-premium">
+                                <div class="font-mono text-2xl font-bold" id="db-stat-screens">0</div>
+                                <div class="text-xs font-bold uppercase tracking-wider text-base-content/60 mt-1.5">MHTML Screens</div>
                             </div>
-                            <div class="db-stat-box">
-                                <div class="db-stat-num" id="db-stat-locators">0</div>
-                                <div class="db-stat-lbl">Locator Mappings</div>
+                            <div class="stat-card-premium">
+                                <div class="font-mono text-2xl font-bold" id="db-stat-locators">0</div>
+                                <div class="text-xs font-bold uppercase tracking-wider text-base-content/60 mt-1.5">Locator Mappings</div>
                             </div>
                         </div>
 
-                        <div class="dashboard-actions">
-                            <button class="btn btn-primary" onclick="openUploadModal()">
-                                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" style="margin-right: 4px;">
-                                    <path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4M17 8l-5-5-5 5M12 3v12"/>
-                                </svg>
-                                <span>Configure Workspace Data</span>
-                            </button>
-                        </div>
-
-                        <div class="dashboard-quick-steps">
-                            <h3>⚡ Quick Start Guide</h3>
-                            <div class="quick-step-item">
-                                <span class="step-num">1</span>
-                                <span class="step-text">Open the data configuration modal, then upload your JSON config file and .mhtml screens.</span>
+                        <!-- Welcome Dropzone -->
+                        <div class="w-full mt-4 flex flex-col gap-4">
+                            <div id="welcome-dropzone" class="welcome-dropzone border-2 border-dashed border-base-300 hover:border-secondary/50 rounded-xl p-8 flex flex-col items-center justify-center gap-3 bg-base-200/50 cursor-pointer transition-all duration-300" onclick="triggerUnifiedInput()">
+                                <div class="text-5xl">&#x1F4C2;</div>
+                                <div class="text-base font-bold text-base-content">Drag & Drop Workspace Files</div>
+                                <div class="text-xs text-base-content/60 max-w-[340px] leading-relaxed">
+                                    Drop your <code class="text-secondary font-semibold">locator.json</code> config and <code class="text-secondary font-semibold">.mhtml</code> screens together here to launch instantly.
+                                </div>
+                                <button class="btn btn-sm btn-outline mt-2">Choose Files</button>
                             </div>
-                            <div class="quick-step-item">
-                                <span class="step-num">2</span>
-                                <span class="step-text">Map page targets to screens, save, and exit back to the workspace.</span>
-                            </div>
-                            <div class="quick-step-item">
-                                <span class="step-num">3</span>
-                                <span class="step-text">Select your test step from the left sidebar to start validating locators in real-time.</span>
+                            
+                            <div class="text-center">
+                                <button class="btn btn-ghost btn-xs text-base-content/40 hover:text-base-content/60" onclick="openUploadModal()">
+                                    Or manage stored files &times;
+                                </button>
                             </div>
                         </div>
                     </div>
                 </div>
 
-                <!-- Wrapper for centering and scaling -->
+                <!-- Iframe wrapper -->
                 <div id="iframe-scaler-wrapper" class="iframe-scaler-wrapper" style="display: none;">
                     <div id="iframe-scaler" class="iframe-scaler">
                         <iframe id="preview-iframe" name="preview-iframe" src="about:blank"></iframe>
@@ -275,14 +248,14 @@
                 </div>
             </div>
 
-            <!-- Floating Navigation Bar in center bottom of preview screen -->
-            <div class="floating-nav-bar">
-                <button id="float-btn-prev" class="float-nav-btn" onclick="prevElement()" title="Previous UI Element (HotKey: Left Arrow)">
+            <!-- Floating Navigation Bar -->
+            <div class="floating-nav-bar absolute bottom-6 left-1/2 -translate-x-1/2 flex items-center bg-base-100/85 backdrop-blur-xl border border-base-300 px-4 py-2 rounded-xl shadow-lg z-[99] gap-3 transition-all">
+                <button id="float-btn-prev" class="btn btn-outline btn-sm gap-2 border-primary/40 text-primary hover:bg-primary hover:text-primary-content" onclick="prevElement()" title="Previous UI Element (HotKey: Left Arrow)">
                     <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M15 19l-7-7 7-7"/></svg>
                     <span>Previous Element</span>
                 </button>
-                <div class="float-nav-divider"></div>
-                <button id="float-btn-next" class="float-nav-btn" onclick="nextElement()" title="Next UI Element (HotKey: Right Arrow)">
+                <div class="w-px h-6 bg-base-content/8"></div>
+                <button id="float-btn-next" class="btn btn-outline btn-sm gap-2 border-primary/40 text-primary hover:bg-primary hover:text-primary-content" onclick="nextElement()" title="Next UI Element (HotKey: Right Arrow)">
                     <span>Next Element</span>
                     <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M9 5l7 7-7 7"/></svg>
                 </button>
@@ -291,45 +264,62 @@
 
         <!-- Details & Evaluation Modal -->
         <div id="details-modal" class="modal-overlay" style="display: none;">
-            <div class="modal-content wide-modal">
-                <div style="display: flex; align-items: center; justify-content: space-between; width: 100%; padding: 0 0 0 0;">
+            <div class="modal-box w-[90vw] max-w-[1200px] h-[80vh] flex flex-col p-6">
+                <div class="flex items-center justify-between w-full mb-4">
                     <div></div>
-                    <div style="display: flex; gap: 6px; align-items: center;">
-                        <button class="control-btn" onclick="openJsonEditor()" title="Edit Locator JSON" style="padding: 5px 12px; font-size: 0.75rem; display: flex; align-items: center; gap: 5px;">
+                    <div class="flex gap-2 items-center">
+                        <button class="btn btn-sm btn-ghost gap-1" onclick="openJsonEditor()" title="Edit Locator JSON">
                             <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M11 4H4a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 013 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
                             <span>Edit JSON</span>
                         </button>
-                        <button class="modal-close" onclick="closeDetailsModal()" title="Close Modal">&times;</button>
+                        <button class="btn btn-sm btn-circle btn-ghost absolute top-3 right-3 text-lg" onclick="closeDetailsModal()" title="Close Modal">&times;</button>
                     </div>
                 </div>
                 
                 <div class="details-panel-wide">
                     <!-- Left Column: Component Details -->
                     <div class="modal-left-col">
-                        <h2 id="detail-el-name" class="detail-title">Component Name</h2>
+                        <h2 id="detail-el-name" class="text-xl font-bold break-words">Component Name</h2>
                         
-                        <div class="detail-meta-vertical">
-                            <div class="meta-item-vertical">
-                                <span class="meta-label">Type</span>
-                                <strong id="detail-el-type" class="meta-value">-</strong>
+                        <div class="flex flex-col gap-4 bg-base-200 p-4 rounded-lg">
+                            <div class="flex justify-between items-center gap-3">
+                                <span class="text-xs font-bold uppercase text-base-content/60">Type</span>
+                                <strong id="detail-el-type" class="text-sm font-semibold">-</strong>
                             </div>
-                            <div class="meta-item-vertical">
-                                <span class="meta-label">Mode</span>
-                                <strong id="detail-el-mode" class="meta-value">-</strong>
+                            <div class="flex justify-between items-center gap-3">
+                                <span class="text-xs font-bold uppercase text-base-content/60">Mode</span>
+                                <strong id="detail-el-mode" class="text-sm font-semibold">-</strong>
                             </div>
-                            <div class="meta-item-vertical">
-                                <span class="meta-label">Event</span>
-                                <strong id="detail-el-event" class="meta-value">-</strong>
+                            <div class="flex justify-between items-center gap-3">
+                                <span class="text-xs font-bold uppercase text-base-content/60">Event</span>
+                                <strong id="detail-el-event" class="text-sm font-semibold">-</strong>
+                            </div>
+                            <div class="flex justify-between items-center gap-3">
+                                <span class="text-xs font-bold uppercase text-base-content/60">Interaction</span>
+                                <strong id="detail-el-interaction" class="text-sm font-semibold">-</strong>
+                            </div>
+                            <div class="flex justify-between items-center gap-3">
+                                <span class="text-xs font-bold uppercase text-base-content/60">UUID</span>
+                                <div class="flex items-center gap-1.5 justify-end max-w-[200px]">
+                                    <strong id="detail-el-uuid" class="text-xs font-mono truncate max-w-[150px]" style="word-break: break-all;">-</strong>
+                                    <button class="copy-btn btn btn-xs btn-ghost p-1 h-auto min-h-0" onclick="copyToClipboard(document.getElementById('detail-el-uuid').textContent)" title="Copy UUID">
+                                        <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M8 7v8a2 2 0 002 2h6M8 7V5a2 2 0 012-2h4.586A1 1 0 0117 3.414l4 4A1 1 0 0121.586 8V19a2 2 0 01-2 2H10a2 2 0 01-2-2v-2"/></svg>
+                                    </button>
+                                </div>
+                            </div>
+                            <div class="flex justify-between items-center gap-3" id="detail-el-parent-row" style="display: none;">
+                                <span class="text-xs font-bold uppercase text-base-content/60">Parent Component</span>
+                                <strong id="detail-el-parent" class="text-sm font-semibold">-</strong>
                             </div>
                         </div>
                         
                         <!-- Modal Quick Navigation -->
-                        <div class="modal-nav-row">
-                            <button class="btn btn-secondary" onclick="prevElement()">
+                        <div class="flex gap-3 mt-auto">
+                            <button class="btn btn-sm btn-ghost flex-1 gap-2" onclick="prevElement()">
                                 <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M19 12H5M12 19l-7-7 7-7"/></svg>
                                 <span>Previous</span>
                             </button>
-                            <button class="btn btn-primary" onclick="nextElement()">
+                            <button class="btn btn-sm btn-primary flex-1 gap-2" onclick="nextElement()">
                                 <span>Next</span>
                                 <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M5 12h14M12 5l7 7-7 7"/></svg>
                             </button>
@@ -338,84 +328,91 @@
                     
                     <!-- Right Column: Locators in Database -->
                     <div class="modal-right-col">
-                        <h3 class="section-subtitle">Locators in database</h3>
-                        <div class="locators-list" id="detail-locators-container">
+                        <h3 class="text-xs font-bold uppercase tracking-wider text-base-content/60 mb-3 flex items-center gap-1.5">Locators in database</h3>
+                        <div class="flex flex-col gap-2.5" id="detail-locators-container">
                             <!-- Locators populated here -->
+                        </div>
+                        
+                        <!-- Properties Section -->
+                        <div class="mt-4 bg-base-300/30 p-4 rounded-lg border border-base-300" id="detail-properties-section" style="display: none;">
+                            <h3 class="text-xs font-bold uppercase tracking-wider text-base-content/60 mb-2 flex items-center gap-1.5">&#x1F4CB; Properties</h3>
+                            <div class="flex flex-col gap-2" id="detail-properties-container">
+                                <!-- Populated here -->
+                            </div>
+                        </div>
+
+                        <!-- Dropdown Locators Section -->
+                        <div class="mt-4 bg-base-300/30 p-4 rounded-lg border border-base-300" id="detail-dropdown-section" style="display: none;">
+                            <h3 class="text-xs font-bold uppercase tracking-wider text-base-content/60 mb-2 flex items-center gap-1.5">&#x1F5D2; Dropdown Config</h3>
+                            <div class="flex flex-col gap-3" id="detail-dropdown-container">
+                                <!-- Populated here -->
+                            </div>
                         </div>
                     </div>
                 </div>
                 
-                <footer class="hotkeys-helper">
+                <footer class="text-xs text-base-content/40 text-center bg-base-200 p-2 rounded-lg border border-base-300 font-medium">
                     <span>Hotkeys:</span>
-                    <kbd>←</kbd> <kbd>→</kbd> Navigate Elements &nbsp;|&nbsp; <kbd>[</kbd> <kbd>]</kbd> Step &nbsp;|&nbsp; <kbd>Esc</kbd> Close
+                    <kbd class="kbd kbd-xs">&larr;</kbd> <kbd class="kbd kbd-xs">&rarr;</kbd> Navigate Elements &nbsp;|&nbsp; <kbd class="kbd kbd-xs">[</kbd> <kbd class="kbd kbd-xs">]</kbd> Step &nbsp;|&nbsp; <kbd class="kbd kbd-xs">Esc</kbd> Close
                 </footer>
             </div>
         </div>
         
         <!-- Manage Workspace Data Modal -->
         <div id="upload-modal" class="modal-overlay" style="display: none;">
-            <div class="modal-content upload-modal-content" id="upload-modal-box">
-                <button class="modal-close" onclick="closeUploadModal()" title="Close Modal">&times;</button>
+            <div class="modal-box w-[600px] max-w-[95%] p-6" id="upload-modal-box">
+                <button class="btn btn-sm btn-circle btn-ghost absolute top-3 right-3 text-lg" onclick="closeUploadModal()" title="Close Modal">&times;</button>
                 
                 <!-- 1. Upload Mode View -->
                 <div id="upload-mode-view">
-                    <h2 class="detail-title" style="margin-bottom: 8px;">Manage Workspace Data</h2>
-                    <p class="upload-modal-description" style="margin-bottom: 12px;">
+                    <h2 class="text-xl font-bold mb-2">Manage Workspace Data</h2>
+                    <p class="text-sm text-base-content/60 leading-relaxed mb-3">
                         Upload your workspace files to run the locator verifier completely offline inside your browser. Drag and drop files, or select them manually. All data is saved locally in your browser's IndexedDB database.
                     </p>
                     
                     <!-- Files Upload & Naming Guide -->
-                    <details class="upload-guide-details">
-                        <summary class="upload-guide-summary">📄 File Upload & Naming Guide</summary>
-                        <div class="upload-guide-content">
-                            <p>To run the locator verifier offline, upload your page assets in the two columns below:</p>
+                    <details class="border border-secondary/15 rounded-lg mb-4">
+                        <summary class="px-4 py-3 text-sm font-bold text-secondary cursor-pointer select-none hover:bg-secondary/5">&#x1F4C4; File Upload & Naming Guide</summary>
+                        <div class="px-4 pb-4 border-t border-secondary/10 text-sm text-base-content/60 leading-relaxed">
+                            <p class="mb-3">To run the locator verifier offline, upload your page assets in the two columns below:</p>
                             
-                            <h4 style="margin-top: 10px; margin-bottom: 6px; font-size: 0.78rem; font-weight: 700;">1. HTML/MHTML Files Column:</h4>
-                            <p style="margin-bottom: 8px;">Upload one or more <code>.mhtml</code> or <code>.html</code> page captures. These are the screens where your locators will be verified.</p>
+                            <h4 class="mt-2.5 mb-1.5 text-sm font-bold">1. HTML/MHTML Files Column:</h4>
+                            <p class="mb-2">Upload one or more <code class="text-secondary">.mhtml</code> or <code class="text-secondary">.html</code> page captures. These are the screens where your locators will be verified.</p>
                             
-                            <h4 style="margin-bottom: 6px; font-size: 0.78rem; font-weight: 700;">2. JSON Config Column:</h4>
-                            <p style="margin-bottom: 12px;">Upload the UI elements configuration JSON file which defines the pages, elements, and selectors.</p>
+                            <h4 class="mb-1.5 text-sm font-bold">2. JSON Config Column:</h4>
+                            <p class="mb-3">Upload the UI elements configuration JSON file which defines the pages, elements, and selectors.</p>
                             
-                            <h4 style="margin-bottom: 6px; font-size: 0.78rem; font-weight: 700;">🗺️ Interactive Mapping:</h4>
-                            <p style="margin-bottom: 0;">Once both inputs are populated, the <strong>"Proceed to Mapping"</strong> button will appear. You will then be able to drag-and-drop the uploaded screens to pair them with the pages listed in the JSON configuration, and edit page or file titles.</p>
+                            <h4 class="mb-1.5 text-sm font-bold">&#x1F5FA;&#xFE0F; Interactive Mapping:</h4>
+                            <p>Once both inputs are populated, the <strong>"Proceed to Mapping"</strong> button will appear. You will then be able to drag-and-drop the uploaded screens to pair them with the pages listed in the JSON configuration, and edit page or file titles.</p>
                         </div>
                     </details>
                     
-                    <div style="height: 16px;"></div>
+                    <div class="h-4"></div>
                     
-                    <!-- Two Column Upload Fields -->
-                    <div class="upload-columns-container">
-                        <!-- Column 1: HTML/MHTML Files -->
-                        <div class="upload-col" id="col-mhtml" onclick="triggerMhtmlInput()">
-                            <div class="upload-col-icon">📄</div>
-                            <div class="upload-col-title">1. Upload HTML/MHTML Files</div>
-                            <div class="upload-col-desc">Select page screens to verify</div>
-                            <div class="upload-sub-btn" style="pointer-events: none; margin-top: 4px;">Choose Files</div>
-                            <input type="file" id="mhtml-file-input" multiple accept=".mhtml,.html" style="display: none;" onchange="handleMhtmlFilesSelected(event)">
-                        </div>
-                        
-                        <!-- Column 2: Locator JSON -->
-                        <div class="upload-col" id="col-json" onclick="triggerJsonInput()">
-                            <div class="upload-col-icon">⚙️</div>
-                            <div class="upload-col-title">2. Upload JSON Config</div>
-                            <div class="upload-col-desc">Select elements configuration JSON</div>
-                            <div class="upload-sub-btn" style="pointer-events: none; margin-top: 4px;">Choose File</div>
-                            <input type="file" id="json-file-input" accept=".json" style="display: none;" onchange="handleJsonFileSelected(event)">
+                    <!-- Merged Single Column Upload Field -->
+                    <div class="upload-columns-container justify-center mb-6">
+                        <div class="upload-col w-full max-w-lg" id="col-unified" onclick="triggerUnifiedInput()">
+                            <div class="text-5xl">&#x1F4C2;</div>
+                            <div class="text-base font-bold text-base-content">Drag & Drop All Workspace Files Here</div>
+                            <div class="text-xs text-base-content/60 leading-relaxed max-w-[360px]">
+                                Select or drop your locator JSON config and MHTML screens together.
+                            </div>
+                            <div class="upload-sub-btn btn btn-sm btn-outline mt-2">Choose Files</div>
                         </div>
                     </div>
                     
                     <!-- Status Board -->
-                    <div class="upload-status-section">
-                        <div class="status-row" style="flex-direction: column; align-items: flex-start; gap: 8px;">
-                            <span class="status-row-title">Active Test Folders (locators):</span>
-                            <div id="status-locators" style="display: flex; gap: 6px; flex-wrap: wrap; margin-top: 4px;">
-                                <span style="font-size: 0.72rem; color: var(--text-muted);">None loaded</span>
+                    <div class="bg-base-200 border border-base-300 rounded-lg p-4 mb-5">
+                        <div class="flex flex-col items-start gap-2 mb-3">
+                            <span class="text-sm font-semibold text-base-content/60">Active Test Folders (locators):</span>
+                            <div id="status-locators" class="flex gap-1.5 flex-wrap mt-1">
+                                <span class="text-xs text-base-content/40">None loaded</span>
                             </div>
                         </div>
-                        <div class="status-row" style="flex-direction: column; align-items: flex-start; gap: 4px;">
-                            <span class="status-row-title">Parsed MHTML Archives:</span>
+                        <div class="flex flex-col items-start gap-1">
+                            <span class="text-sm font-semibold text-base-content/60">Parsed MHTML Archives:</span>
                             <div class="mhtml-file-list" id="status-mhtml-list">
-                                <div style="font-size: 0.72rem; color: var(--text-muted); text-align: center; padding: 10px 0; width: 100%;">No MHTML files uploaded</div>
+                                <div class="text-xs text-base-content/40 text-center py-2.5 w-full">No MHTML files uploaded</div>
                             </div>
                         </div>
                     </div>
@@ -423,170 +420,171 @@
                     <!-- Processing Log Console -->
                     <div class="upload-log-container" id="upload-log-box" style="display: none;"></div>
                     
-                    <footer class="modal-footer-actions">
-                        <button class="btn-danger-outline" onclick="clearAllWorkspaceData()">Clear Storage</button>
-                        <button id="btn-proceed-mapping" class="btn-primary" onclick="enterMappingMode()" style="display: none; padding: 10px 24px; flex: initial; max-width: 220px;">Proceed to Mapping &rarr;</button>
-                        <button id="btn-close-upload" class="btn-secondary" onclick="applyAndCloseUploadModal()" style="padding: 10px 20px; flex: initial; max-width: 150px;">Close</button>
+                    <footer class="flex justify-end items-center gap-2">
+                        <button id="btn-proceed-mapping" class="btn btn-sm btn-primary" onclick="enterMappingMode()" style="display: none;">Proceed to Mapping &rarr;</button>
+                        <button id="btn-close-upload" class="btn btn-sm btn-ghost" onclick="applyAndCloseUploadModal()">Close</button>
                     </footer>
                 </div>
                 
                 <!-- 2. Mapping Mode View -->
                 <div id="mapping-mode-view" style="display: none;">
-                    <h2 class="detail-title" style="margin-bottom: 8px;">Map Pages to MHTML Files</h2>
-                    <p class="upload-modal-description" style="margin-bottom: 16px; font-size: 0.78rem;">
+                    <h2 class="text-xl font-bold mb-2">Map Pages to MHTML Files</h2>
+                    <p class="text-sm text-base-content/60 leading-relaxed mb-4">
                         Drag MHTML files from the left and drop them onto pages on the right. You can rename pages and files directly.
                     </p>
                     
-                    <div style="display: flex; justify-content: flex-end; margin-bottom: 12px; gap: 10px;">
-                        <button class="upload-sub-btn" onclick="autoMapBySuffix()" style="background-color: var(--match-glow); color: var(--match-color); border-color: var(--match-border);">🤖 Auto-Map Matches</button>
+                    <div class="flex justify-end mb-3 gap-2.5">
+                        <button class="btn btn-sm btn-outline border-success/30 bg-success/10 text-success hover:bg-success/20" onclick="autoMapBySuffix()">&#x1F916; Auto-Map Matches</button>
                     </div>
                     
-                    <div class="mapping-container" style="display: flex; gap: 16px; height: 50vh; min-height: 380px; margin-bottom: 16px;">
-                        <!-- Left: MHTML Files (Draggables) -->
-                        <div class="mapping-column mapping-sources-col" style="flex: 1; display: flex; flex-direction: column; overflow: hidden; background: rgba(15, 23, 42, 0.01); border: 1px solid var(--border-glass); border-radius: var(--border-radius-md); padding: 12px;">
-                            <h3 class="section-subtitle" style="font-size: 0.8rem; margin-bottom: 8px;">📄 MHTML Files</h3>
-                            <div class="mapping-scroll-box" id="mapping-mhtml-list" style="flex: 1; overflow-y: auto; display: flex; flex-direction: column; gap: 6px; padding-right: 4px;"></div>
+                    <div class="flex gap-4 h-[50vh] min-h-[380px] mb-4">
+                        <div class="mapping-sources-col flex-1 flex flex-col overflow-hidden bg-base-200 border border-base-300 rounded-lg p-3">
+                            <h3 class="text-xs font-bold uppercase tracking-wider text-base-content/60 mb-2 flex items-center gap-1.5">&#x1F4C4; MHTML Files</h3>
+                            <div class="mapping-scroll-box flex-1 overflow-y-auto flex flex-col gap-1.5 pr-1" id="mapping-mhtml-list"></div>
                         </div>
                         
-                        <!-- Right: Pages/JSON (Drop Targets) -->
-                        <div class="mapping-column mapping-targets-col" style="flex: 1.2; display: flex; flex-direction: column; overflow: hidden; background: rgba(15, 23, 42, 0.01); border: 1px solid var(--border-glass); border-radius: var(--border-radius-md); padding: 12px;">
-                            <h3 class="section-subtitle" style="font-size: 0.8rem; margin-bottom: 8px;">📋 JSON Pages</h3>
-                            <div class="mapping-scroll-box" id="mapping-pages-list" style="flex: 1; overflow-y: auto; display: flex; flex-direction: column; gap: 6px; padding-right: 4px;"></div>
+                        <div class="mapping-targets-col flex-[1.2] flex flex-col overflow-hidden bg-base-200 border border-base-300 rounded-lg p-3">
+                            <h3 class="text-xs font-bold uppercase tracking-wider text-base-content/60 mb-2 flex items-center gap-1.5">&#x1F4CB; JSON Pages</h3>
+                            <div class="mapping-scroll-box flex-1 overflow-y-auto flex flex-col gap-1.5 pr-1" id="mapping-pages-list"></div>
                         </div>
                     </div>
                     
-                    <footer class="modal-footer-actions">
-                        <button class="btn-secondary" onclick="exitMappingMode()" style="padding: 8px 16px; flex: initial; max-width: 150px;">← Back to Upload</button>
-                        <button class="btn-primary" onclick="saveMappingConfig()" style="padding: 8px 24px; flex: initial; max-width: 250px;">Save & Generate mapper.json</button>
+                    <footer class="flex justify-between items-center">
+                        <button class="btn btn-sm btn-ghost" onclick="exitMappingMode()">&larr; Back to Upload</button>
+                        <button class="btn btn-sm btn-primary" onclick="saveMappingConfig()">Save &amp; Generate mapper.json</button>
                     </footer>
                 </div>
             </div>
         </div>
     </div>
 
-        <!-- Confirm Remove Modal -->
-        <div id="confirm-remove-modal" class="modal-overlay" style="display: none;">
-            <div class="modal-content confirm-modal-content">
-                <button class="modal-close" onclick="closeConfirmRemoveModal()" title="Close">&times;</button>
-                <div class="confirm-modal-body">
-                    <div class="confirm-modal-icon">
-                        <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="var(--mismatch-color)" stroke-width="2">
-                            <circle cx="12" cy="12" r="10"/>
-                            <line x1="12" y1="8" x2="12" y2="12"/>
-                            <line x1="12" y1="16" x2="12.01" y2="16"/>
-                        </svg>
-                    </div>
-                    <h3 class="confirm-modal-title">Remove Elements</h3>
-                    <p class="confirm-modal-desc" id="confirm-remove-desc">
-                        Are you sure you want to remove the selected elements from the locator configuration?
-                    </p>
-                    <div class="confirm-modal-count" id="confirm-remove-count">0 elements will be removed</div>
-                    <div class="confirm-modal-list" id="confirm-remove-list"></div>
+    <!-- Confirm Remove Modal -->
+    <div id="confirm-remove-modal" class="modal-overlay" style="display: none;">
+        <div class="modal-box max-w-md p-0 overflow-hidden">
+            <button class="btn btn-sm btn-circle btn-ghost absolute top-3 right-3 text-lg z-10" onclick="closeConfirmRemoveModal()" title="Close">&times;</button>
+            <div class="p-7 pb-4 text-center">
+                <div class="mb-3">
+                    <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="var(--er, #dc2626)" stroke-width="2">
+                        <circle cx="12" cy="12" r="10"/>
+                        <line x1="12" y1="8" x2="12" y2="12"/>
+                        <line x1="12" y1="16" x2="12.01" y2="16"/>
+                    </svg>
                 </div>
-                <footer class="confirm-modal-footer">
-                    <button class="btn-secondary" onclick="closeConfirmRemoveModal()">Cancel</button>
-                    <button class="btn-danger-outline" onclick="confirmRemoveElements()">
-                        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M3 6h18M19 6v14a2 2 0 01-2 2H7a2 2 0 01-2-2V6m3 0V4a2 2 0 012-2h4a2 2 0 012 2v2"/></svg>
-                        Confirm Remove
-                    </button>
-                </footer>
+                <h3 class="text-lg font-bold text-base-content mb-2">Remove Elements</h3>
+                <p class="text-sm text-base-content/60 mb-3" id="confirm-remove-desc">
+                    Are you sure you want to remove the selected elements from the locator configuration?
+                </p>
+                <div class="badge badge-outline badge-error mb-3" id="confirm-remove-count">0 elements will be removed</div>
+                <div class="confirm-modal-list max-h-40 overflow-y-auto text-left p-3 bg-base-200 rounded-lg border border-base-300" id="confirm-remove-list"></div>
             </div>
+            <footer class="flex justify-end gap-2.5 px-7 py-4 bg-base-200/50 border-t border-base-300">
+                <button class="btn btn-sm btn-ghost" onclick="closeConfirmRemoveModal()">Cancel</button>
+                <button class="btn btn-sm btn-outline btn-error gap-1" onclick="confirmRemoveElements()">
+                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M3 6h18M19 6v14a2 2 0 01-2 2H7a2 2 0 01-2-2V6m3 0V4a2 2 0 012-2h4a2 2 0 012 2v2"/></svg>
+                    Confirm Remove
+                </button>
+            </footer>
         </div>
-
-        <!-- Confirm Delete Group Modal -->
-        <div id="confirm-delete-group-modal" class="modal-overlay" style="display: none;">
-            <div class="modal-content confirm-modal-content">
-                <button class="modal-close" onclick="closeConfirmDeleteGroupModal()" title="Close">&times;</button>
-                <div class="confirm-modal-body">
-                    <div class="confirm-modal-icon">
-                        <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="var(--mismatch-color)" stroke-width="2">
-                            <circle cx="12" cy="12" r="10"/>
-                            <line x1="12" y1="8" x2="12" y2="12"/>
-                            <line x1="12" y1="16" x2="12.01" y2="16"/>
-                        </svg>
-                    </div>
-                    <h3 class="confirm-modal-title">Delete Group</h3>
-                    <p class="confirm-modal-desc" id="confirm-delete-group-desc">
-                        Are you sure you want to delete this group?
-                    </p>
-                    <div class="confirm-modal-count" id="confirm-delete-group-name"></div>
-                    <div class="confirm-modal-list" id="confirm-delete-group-details"></div>
-                </div>
-                <footer class="confirm-modal-footer">
-                    <button class="btn-secondary" onclick="closeConfirmDeleteGroupModal()">Cancel</button>
-                    <button class="btn-danger-outline" onclick="executeDeleteGroup()">
-                        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M3 6h18M19 6v14a2 2 0 01-2 2H7a2 2 0 01-2-2V6m3 0V4a2 2 0 012-2h4a2 2 0 012 2v2"/></svg>
-                        Confirm Delete
-                    </button>
-                </footer>
-            </div>
-        </div>
-        <!-- Edit Locator JSON Modal -->
-        <div id="json-editor-modal" class="modal-overlay" style="display: none;">
-            <div class="modal-content json-editor-modal-content">
-                <button class="modal-close" onclick="closeJsonEditor()" title="Close Editor">&times;</button>
-                
-                <div class="json-editor-header">
-                    <h2 class="detail-title">Edit Locator JSON</h2>
-                    <div class="json-editor-tabs">
-                        <button class="json-tab active" onclick="switchEditorView('raw')" id="tab-raw">Raw JSON</button>
-                        <button class="json-tab" onclick="switchEditorView('form')" id="tab-form">Form Editor</button>
-                    </div>
-                    <div class="json-editor-status" id="json-editor-status"></div>
-                </div>
-                
-                <!-- Raw JSON View -->
-                <div id="json-editor-raw-view" class="json-editor-view">
-                    <div class="json-editor-toolbar">
-                        <button class="json-tool-btn" onclick="formatJsonEditor()" title="Format / Beautify JSON">
-                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M21 10H7M21 6H3M21 14H3M21 18H7"/></svg>
-                            Format
-                        </button>
-                        <button class="json-tool-btn" onclick="minifyJsonEditor()" title="Minify JSON">
-                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M17 3l4 4-4 4M7 21l-4-4 4-4M3 12h18"/></svg>
-                            Minify
-                        </button>
-                        <button class="json-tool-btn" onclick="validateJsonEditor()" title="Validate JSON">
-                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M20 6L9 17l-5-5"/></svg>
-                            Validate
-                        </button>
-                    </div>
-                    <textarea id="json-editor-textarea" class="json-editor-textarea" spellcheck="false" placeholder="Loading..."></textarea>
-                    <div class="json-editor-line-info" id="json-editor-line-info">Ln 1, Col 1</div>
-                </div>
-                
-                <!-- Form Editor View -->
-                <div id="json-editor-form-view" class="json-editor-view" style="display: none;">
-                    <div class="form-editor-container" id="form-editor-container">
-                        <div class="form-editor-placeholder">
-                            <div class="placeholder-icon">📝</div>
-                            <div>Select an element from the sidebar to edit its details</div>
-                        </div>
-                    </div>
-                </div>
-                
-                <footer class="json-editor-footer">
-                    <div class="json-editor-footer-left">
-                        <span class="json-editor-save-hint" id="json-editor-save-hint"></span>
-                    </div>
-                    <div class="json-editor-footer-right">
-                        <button class="btn-secondary" onclick="closeJsonEditor()">Cancel</button>
-                        <button class="btn-secondary" onclick="saveLocatorToDBOnly()" title="Save to browser only (no disk write)">
-                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M19 21H5a2 2 0 01-2-2V5a2 2 0 012-2h11l5 5v11a2 2 0 01-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></svg>
-                            Save to Browser
-                        </button>
-                        <button class="btn-primary" onclick="saveLocatorToDiskAndDB()" title="Save to browser and persist to disk">
-                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M19 21H5a2 2 0 01-2-2V5a2 2 0 012-2h11l5 5v11a2 2 0 01-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></svg>
-                            Save to Disk
-                        </button>
-                    </div>
-                </footer>
-            </div>
-        </div>
-
-        <!-- Toast Notification -->
-        <div id="toast-notification" class="toast-notification" style="display: none;"></div>
     </div>
+
+    <!-- Confirm Delete Group Modal -->
+    <div id="confirm-delete-group-modal" class="modal-overlay" style="display: none;">
+        <div class="modal-box max-w-md p-0 overflow-hidden">
+            <button class="btn btn-sm btn-circle btn-ghost absolute top-3 right-3 text-lg z-10" onclick="closeConfirmDeleteGroupModal()" title="Close">&times;</button>
+            <div class="p-7 pb-4 text-center">
+                <div class="mb-3">
+                    <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="var(--er, #dc2626)" stroke-width="2">
+                        <circle cx="12" cy="12" r="10"/>
+                        <line x1="12" y1="8" x2="12" y2="12"/>
+                        <line x1="12" y1="16" x2="12.01" y2="16"/>
+                    </svg>
+                </div>
+                <h3 class="text-lg font-bold text-base-content mb-2">Delete Group</h3>
+                <p class="text-sm text-base-content/60 mb-3" id="confirm-delete-group-desc">
+                    Are you sure you want to delete this group?
+                </p>
+                <div class="badge badge-outline badge-error mb-3" id="confirm-delete-group-name"></div>
+                <div class="confirm-modal-list max-h-40 overflow-y-auto text-left p-3 bg-base-200 rounded-lg border border-base-300" id="confirm-delete-group-details"></div>
+            </div>
+            <footer class="flex justify-end gap-2.5 px-7 py-4 bg-base-200/50 border-t border-base-300">
+                <button class="btn btn-sm btn-ghost" onclick="closeConfirmDeleteGroupModal()">Cancel</button>
+                <button class="btn btn-sm btn-outline btn-error gap-1" onclick="executeDeleteGroup()">
+                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M3 6h18M19 6v14a2 2 0 01-2 2H7a2 2 0 01-2-2V6m3 0V4a2 2 0 012-2h4a2 2 0 012 2v2"/></svg>
+                    Confirm Delete
+                </button>
+            </footer>
+        </div>
+    </div>
+
+    <!-- Edit Locator JSON Modal -->
+    <div id="json-editor-modal" class="modal-overlay" style="display: none;">
+        <div class="modal-box w-[90vw] max-w-[1400px] h-[85vh] flex flex-col p-0 overflow-hidden">
+            <button class="btn btn-sm btn-circle btn-ghost absolute top-3 right-3 text-lg z-10" onclick="closeJsonEditor()" title="Close Editor">&times;</button>
+            
+            <div class="flex items-center gap-4 px-6 py-4 border-b border-base-300 bg-base-100 shrink-0">
+                <h2 class="text-lg font-bold whitespace-nowrap">Edit Locator JSON</h2>
+                <div class="tabs tabs-boxed">
+                    <button class="tab tab-active" onclick="switchEditorView('raw')" id="tab-raw">Raw JSON</button>
+                    <button class="tab" onclick="switchEditorView('form')" id="tab-form">Form Editor</button>
+                </div>
+                <!-- Search Filter Input for JSON / Form Editor -->
+                <div class="relative flex-1 max-w-xs md:max-w-md">
+                    <input type="text" id="json-search-input" class="input input-bordered input-xs w-full pl-7" placeholder="Filter elements or search JSON..." oninput="onJsonSearchInput(this.value)" style="background-image: url(&quot;data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 24 24' stroke='%2364748b' stroke-width='2.5'%3E%3Cpath stroke-linecap='round' stroke-linejoin='round' d='M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z'/%3E%3C/svg%3E&quot;); background-repeat: no-repeat; background-position: 7px center; background-size: 11px;">
+                </div>
+                <div class="ml-auto text-xs font-semibold px-2.5 py-1 rounded-full transition-all" id="json-editor-status"></div>
+            </div>
+            
+            <!-- Raw JSON View -->
+            <div id="json-editor-raw-view" class="json-editor-view flex-1 flex flex-col overflow-hidden min-h-0">
+                <div class="flex gap-1.5 px-6 py-2 bg-base-100 border-b border-base-300 shrink-0">
+                    <button class="btn btn-xs btn-ghost gap-1" onclick="formatJsonEditor()" title="Format / Beautify JSON">
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M21 10H7M21 6H3M21 14H3M21 18H7"/></svg>
+                        Format
+                    </button>
+                    <button class="btn btn-xs btn-ghost gap-1" onclick="minifyJsonEditor()" title="Minify JSON">
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M17 3l4 4-4 4M7 21l-4-4 4-4M3 12h18"/></svg>
+                        Minify
+                    </button>
+                    <button class="btn btn-xs btn-ghost gap-1" onclick="validateJsonEditor()" title="Validate JSON">
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M20 6L9 17l-5-5"/></svg>
+                        Validate
+                    </button>
+                </div>
+                <textarea id="json-editor-textarea" class="json-editor-textarea w-full p-4 border-none bg-base-100 focus:outline-none" spellcheck="false" placeholder="Loading..."></textarea>
+                <div class="px-6 py-1 text-xs text-base-content/40 bg-base-100 border-t border-base-300 shrink-0" id="json-editor-line-info">Ln 1, Col 1</div>
+            </div>
+            
+            <!-- Form Editor View -->
+            <div id="json-editor-form-view" class="json-editor-view flex-1 overflow-y-auto p-6 bg-base-100" style="display: none;">
+                <div id="form-editor-container">
+                    <div class="flex flex-col items-center justify-center h-full text-base-content/40 text-sm gap-2">
+                        <div class="text-3xl">&#x1F4DD;</div>
+                        <div>Select an element from the sidebar to edit its details</div>
+                    </div>
+                </div>
+            </div>
+            
+            <footer class="flex items-center justify-between px-6 py-3 border-t border-base-300 bg-base-200 shrink-0">
+                <div class="flex-1">
+                    <span class="text-xs text-base-content/40" id="json-editor-save-hint"></span>
+                </div>
+                <div class="flex gap-2">
+                    <button class="btn btn-sm btn-ghost" onclick="closeJsonEditor()">Cancel</button>
+                    <button class="btn btn-sm btn-ghost gap-1.5" onclick="saveLocatorToDBOnly()" title="Save to browser only (no disk write)">
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M19 21H5a2 2 0 01-2-2V5a2 2 0 012-2h11l5 5v11a2 2 0 01-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></svg>
+                        Save to Browser
+                    </button>
+                    <button class="btn btn-sm btn-primary gap-1.5" onclick="saveLocatorToDiskAndDB()" title="Save to browser and persist to disk">
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M19 21H5a2 2 0 01-2-2V5a2 2 0 012-2h11l5 5v11a2 2 0 01-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></svg>
+                        Save to Disk
+                    </button>
+                </div>
+            </footer>
+        </div>
+    </div>
+
+    <!-- Toast Notification -->
+    <div id="toast-notification" class="toast-notification" style="display: none;"></div>
 
     <!-- Include client database & application logic -->
     <script src="db.js"></script>
