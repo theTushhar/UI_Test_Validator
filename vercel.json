@@ -2,17 +2,7 @@
   "version": 2,
   "functions": {
     "api/server.js": {
-      "includeFiles": [
-        "Data/**",
-        "mapper.json",
-        "index.html",
-        "db.js",
-        "mhtmlParserBrowser.js",
-        "mhtmlParser.js",
-        "sw.js",
-        "css/**",
-        "js/**"
-      ]
+      "includeFiles": "{Data/**,mapper.json,index.html,db.js,mhtmlParserBrowser.js,mhtmlParser.js,sw.js,css/**,js/**}"
     }
   },
   "rewrites": [
