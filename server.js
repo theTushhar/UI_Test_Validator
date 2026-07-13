@@ -207,6 +207,38 @@ app.get('/api/findings', (req, res) => {
     res.json(data);
 });
 
+// Debug endpoint to list files on Vercel
+app.get('/api/debug-files', (req, res) => {
+    function getFiles(dir, fileList = []) {
+        if (!fs.existsSync(dir)) return fileList;
+        const entries = fs.readdirSync(dir, { withFileTypes: true });
+        for (const entry of entries) {
+            const fullPath = path.join(dir, entry.name);
+            if (entry.isDirectory()) {
+                const name = entry.name.toLowerCase();
+                if (name !== 'node_modules' && name !== '.git' && name !== '.agents' && name !== '.gemini') {
+                    getFiles(fullPath, fileList);
+                }
+            } else {
+                fileList.push(path.relative(projectRoot, fullPath).split(path.sep).join('/'));
+            }
+        }
+        return fileList;
+    }
+    try {
+        const files = getFiles(projectRoot);
+        res.json({
+            projectRoot,
+            cwd: process.cwd(),
+            VERCEL: process.env.VERCEL || 'not set',
+            files
+        });
+    } catch (e) {
+        res.status(500).json({ error: e.message });
+    }
+});
+
+
 // Save Locator Config (PUT) — persists locator.json to disk
 app.put('/api/locators', (req, res) => {
     const subdir = req.query.dir || '';
