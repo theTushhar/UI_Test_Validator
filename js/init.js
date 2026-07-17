@@ -14,7 +14,6 @@ import './welcome.js';
 import './jsonEditor.js';
 
 // Named imports for boot sequence
-import { state } from './state.js';
 import { initApp } from './state.js';
 import { setupIframeMessagePassing, updateIframeZoom } from './iframe.js';
 import { setupKeyboardShortcuts } from './navigation.js';

@@ -151,6 +151,22 @@ const dbHelper = {
     },
     
     /**
+     * Lists all resource records stored for a given filename. Used by sw.js's suffix-match
+     * fallback lookup, mirroring the equivalent fallback in mhtmlParser.js's getResource().
+     */
+    async getResourcesByFilename(filename) {
+        const db = await this.init();
+        return new Promise((resolve, reject) => {
+            const tx = db.transaction('mhtml_resources', 'readonly');
+            const store = tx.objectStore('mhtml_resources');
+            const index = store.index('filename');
+            const req = index.getAll(IDBKeyRange.only(filename));
+            req.onsuccess = () => resolve(req.result);
+            req.onerror = () => reject(req.error);
+        });
+    },
+
+    /**
      * Lists all uploaded MHTML filenames in database.
      */
     async getAllMhtmlFiles() {

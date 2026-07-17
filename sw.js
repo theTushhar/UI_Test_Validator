@@ -138,15 +138,23 @@ async function handleServeMhtml(request) {
             }
         }
         
-        // 4. Try fuzzy matching suffix
+        // 4. Try fuzzy matching suffix — mirrors mhtmlParser.js's getResource() fallback,
+        // which recovers resources whose stored Content-Location key doesn't exactly
+        // match the requested path (e.g. differing leading slash or host prefix).
         if (!resRecord) {
             const cleanPath = subPathRaw.startsWith('/') ? subPathRaw.substring(1) : subPathRaw;
-            const metaFull = await dbHelper.getMhtmlMeta(filename);
-            
-            // Direct lookup in meta key list if possible, or fall back to DB search
-            // (We iterate stored paths by loading meta resource mappings if we had them,
-            // but we can search for closest matching key in our database)
-            // For now, let's keep search simple:
+            const candidates = [subPathWithQuery, decodeURIComponent(subPathRaw), cleanPath].filter(Boolean);
+            const allResources = await dbHelper.getResourcesByFilename(filename);
+
+            matchLoop:
+            for (const p of candidates) {
+                for (const record of allResources) {
+                    if (record.path.endsWith(p) || p.endsWith(record.path)) {
+                        resRecord = record;
+                        break matchLoop;
+                    }
+                }
+            }
         }
         
         if (resRecord && resRecord.blob) {

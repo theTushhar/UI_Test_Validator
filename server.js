@@ -17,32 +17,75 @@ let inMemoryFindings = {};
 // Enable JSON parsing middleware with a larger limit for locator findings payload
 app.use(express.json({ limit: '50mb' }));
 
-// Cache for parsed MHTML archives to avoid re-parsing on every asset request
-const mhtmlCache = {};
+// Security headers. Note: script-src still allows 'unsafe-inline' because the frontend
+// currently relies on inline onclick="..." handlers throughout index.html; that is a
+// larger app-wide refactor (see IMPROVEMENTS.md) tracked separately. This is defense-in-depth
+// for the fact that uploaded MHTML/JSON content is rendered/interpolated in the app —
+// it restricts which origins scripts/styles/frames can load from even if an escaping bug slips through.
+app.use((req, res, next) => {
+    res.setHeader(
+        'Content-Security-Policy',
+        [
+            "default-src 'self'",
+            "script-src 'self' 'unsafe-inline'",
+            "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
+            "font-src 'self' https://fonts.gstatic.com",
+            "img-src 'self' data: blob:",
+            "connect-src 'self'",
+            "frame-src 'self'",
+            "object-src 'none'",
+            "base-uri 'self'"
+        ].join('; ')
+    );
+    res.setHeader('X-Content-Type-Options', 'nosniff');
+    res.setHeader('X-Frame-Options', 'DENY');
+    res.setHeader('Referrer-Policy', 'same-origin');
+    next();
+});
+
+// Cache for parsed MHTML archives to avoid re-parsing on every asset request.
+// Bounded LRU keyed by filename, invalidated whenever the underlying file's mtime changes.
+const MHTML_CACHE_MAX_ENTRIES = 50;
+const mhtmlCache = new Map();
+
+/**
+ * Joins `relativePath` onto `baseDir` and verifies the resolved path is still
+ * contained within `baseDir`, rejecting any `..` escape (path traversal).
+ * @param {string} baseDir
+ * @param {string} relativePath
+ * @returns {string|null} The resolved absolute path, or null if it escapes baseDir
+ */
+function safeJoin(baseDir, relativePath) {
+    const cleanRelPath = relativePath.split(/[/\\]+/).join(path.sep);
+    const resolvedBase = path.resolve(baseDir);
+    const target = path.resolve(resolvedBase, cleanRelPath);
+    if (target !== resolvedBase && !target.startsWith(resolvedBase + path.sep)) {
+        return null;
+    }
+    return target;
+}
 
 /**
  * Robust path resolver. Checks both the workspace root and the "Data" subfolder.
- * @param {string} relativePath 
+ * Rejects any path that would escape either directory (path traversal).
+ * @param {string} relativePath
  * @returns {string|null} The resolved absolute path, or null if not found
  */
 function resolvePath(relativePath) {
     if (!relativePath) return null;
-    
-    // Clean up relative path separators
-    const cleanRelPath = relativePath.split(/[/\\]+/).join(path.sep);
-    
+
     // 1. Try directly in workspace root
-    const path1 = path.join(projectRoot, cleanRelPath);
-    if (fs.existsSync(path1)) {
+    const path1 = safeJoin(projectRoot, relativePath);
+    if (path1 && fs.existsSync(path1)) {
         return path1;
     }
-    
+
     // 2. Try inside "Data" folder
-    const path2 = path.join(projectRoot, 'Data', cleanRelPath);
-    if (fs.existsSync(path2)) {
+    const path2 = safeJoin(path.join(projectRoot, 'Data'), relativePath);
+    if (path2 && fs.existsSync(path2)) {
         return path2;
     }
-    
+
     return null;
 }
 
@@ -65,56 +108,78 @@ function loadMapper() {
 }
 
 /**
- * Gets all MHTML files recursively under a directory.
+ * Gets all MHTML files recursively under a directory (async, non-blocking).
  * Skips dependency and cache folders to stay performant.
  */
-function getMhtmlFilesRecursively(dir, baseDir, fileList = []) {
-    if (!fs.existsSync(dir)) return fileList;
-    
+async function getMhtmlFilesRecursively(dir, baseDir, fileList = []) {
+    let entries;
     try {
-        const entries = fs.readdirSync(dir, { withFileTypes: true });
-        for (const entry of entries) {
-            const fullPath = path.join(dir, entry.name);
-            
-            if (entry.isDirectory()) {
-                const lowerFile = entry.name.toLowerCase();
-                if (
-                    lowerFile !== 'node_modules' &&
-                    lowerFile !== '.git' &&
-                    lowerFile !== '.gemini' &&
-                    lowerFile !== '.agents' &&
-                    lowerFile !== '__pycache__' &&
-                    lowerFile !== 'frontend'
-                ) {
-                    getMhtmlFilesRecursively(fullPath, baseDir, fileList);
-                }
-            } else if (entry.isFile() && (entry.name.endsWith('.mhtml') || (entry.name.endsWith('.html') && entry.name !== 'index.html'))) {
-                let relPath = path.relative(baseDir, fullPath);
-                relPath = relPath.split(path.sep).join('/');
-                fileList.push(relPath);
-            }
-        }
+        entries = await fs.promises.readdir(dir, { withFileTypes: true });
     } catch (e) {
-        console.error(`[Server] Error reading directory ${dir}:`, e);
+        return fileList;
+    }
+
+    for (const entry of entries) {
+        const fullPath = path.join(dir, entry.name);
+
+        if (entry.isDirectory()) {
+            const lowerFile = entry.name.toLowerCase();
+            if (
+                lowerFile !== 'node_modules' &&
+                lowerFile !== '.git' &&
+                lowerFile !== '.gemini' &&
+                lowerFile !== '.agents' &&
+                lowerFile !== '__pycache__'
+            ) {
+                await getMhtmlFilesRecursively(fullPath, baseDir, fileList);
+            }
+        } else if (entry.isFile() && (entry.name.endsWith('.mhtml') || (entry.name.endsWith('.html') && entry.name !== 'index.html'))) {
+            let relPath = path.relative(baseDir, fullPath);
+            relPath = relPath.split(path.sep).join('/');
+            fileList.push(relPath);
+        }
     }
     return fileList;
 }
 
 /**
- * Returns MHTMLArchive instance for caching.
- * @param {string} filename 
+ * Returns MHTMLArchive instance for caching. The cache entry is invalidated
+ * whenever the source file's mtime changes, and the cache is bounded to an
+ * LRU of MHTML_CACHE_MAX_ENTRIES to avoid unbounded memory growth.
+ * @param {string} filename
  * @returns {MHTMLArchive|null}
  */
 function getMHTMLArchive(filename) {
-    if (!mhtmlCache[filename]) {
-        const resolvedPath = resolvePath(filename);
-        if (!resolvedPath) {
-            console.error(`[Server] Could not locate MHTML file: ${filename}`);
-            return null;
-        }
-        mhtmlCache[filename] = new MHTMLArchive(resolvedPath);
+    const resolvedPath = resolvePath(filename);
+    if (!resolvedPath) {
+        console.error(`[Server] Could not locate MHTML file: ${filename}`);
+        return null;
     }
-    return mhtmlCache[filename];
+
+    let mtimeMs;
+    try {
+        mtimeMs = fs.statSync(resolvedPath).mtimeMs;
+    } catch (e) {
+        return null;
+    }
+
+    const cached = mhtmlCache.get(filename);
+    if (cached && cached.mtimeMs === mtimeMs) {
+        // Refresh LRU order (Map preserves insertion order)
+        mhtmlCache.delete(filename);
+        mhtmlCache.set(filename, cached);
+        return cached.archive;
+    }
+
+    const archive = new MHTMLArchive(resolvedPath);
+    mhtmlCache.set(filename, { mtimeMs, archive });
+
+    if (mhtmlCache.size > MHTML_CACHE_MAX_ENTRIES) {
+        const oldestKey = mhtmlCache.keys().next().value;
+        mhtmlCache.delete(oldestKey);
+    }
+
+    return archive;
 }
 
 // ==========================================
@@ -128,9 +193,9 @@ app.get('/api/mapper', (req, res) => {
 });
 
 // List all MHTML files (either from mapper config or workspace walking)
-app.get('/api/files', (req, res) => {
+app.get('/api/files', async (req, res) => {
     const useMapper = (req.query.mapper || 'false').toLowerCase() === 'true';
-    
+
     if (useMapper) {
         const mapper = loadMapper();
         const activeGroups = (mapper.test_groups || []).filter(g => g.active !== false);
@@ -148,7 +213,7 @@ app.get('/api/files', (req, res) => {
         files.sort();
         return res.json(files);
     } else {
-        const files = getMhtmlFilesRecursively(projectRoot, projectRoot);
+        const files = await getMhtmlFilesRecursively(projectRoot, projectRoot);
         files.sort();
         return res.json(files);
     }
@@ -207,38 +272,6 @@ app.get('/api/findings', (req, res) => {
     res.json(data);
 });
 
-// Debug endpoint to list files on Vercel
-app.get('/api/debug-files', (req, res) => {
-    function getFiles(dir, fileList = []) {
-        if (!fs.existsSync(dir)) return fileList;
-        const entries = fs.readdirSync(dir, { withFileTypes: true });
-        for (const entry of entries) {
-            const fullPath = path.join(dir, entry.name);
-            if (entry.isDirectory()) {
-                const name = entry.name.toLowerCase();
-                if (name !== 'node_modules' && name !== '.git' && name !== '.agents' && name !== '.gemini') {
-                    getFiles(fullPath, fileList);
-                }
-            } else {
-                fileList.push(path.relative(projectRoot, fullPath).split(path.sep).join('/'));
-            }
-        }
-        return fileList;
-    }
-    try {
-        const files = getFiles(projectRoot);
-        res.json({
-            projectRoot,
-            cwd: process.cwd(),
-            VERCEL: process.env.VERCEL || 'not set',
-            files
-        });
-    } catch (e) {
-        res.status(500).json({ error: e.message });
-    }
-});
-
-
 // Save Locator Config (PUT) — persists locator.json to disk
 app.put('/api/locators', (req, res) => {
     const subdir = req.query.dir || '';
@@ -250,7 +283,10 @@ app.put('/api/locators', (req, res) => {
     
     let locatorPath = null;
     if (subdir) {
-        const dataDir = path.join(projectRoot, 'Data', subdir);
+        const dataDir = safeJoin(path.join(projectRoot, 'Data'), subdir);
+        if (!dataDir) {
+            return res.status(400).json({ error: 'Invalid "dir" parameter.' });
+        }
         if (!fs.existsSync(dataDir)) {
             fs.mkdirSync(dataDir, { recursive: true });
         }
@@ -258,7 +294,7 @@ app.put('/api/locators', (req, res) => {
     } else {
         locatorPath = path.join(projectRoot, 'locator.json');
     }
-    
+
     try {
         fs.writeFileSync(locatorPath, JSON.stringify(locatorData, null, 2), 'utf-8');
         res.json({ status: 'success', file: locatorPath });
@@ -285,11 +321,19 @@ app.post('/api/save', (req, res) => {
     
     try {
         fs.writeFileSync(findingsPath, JSON.stringify(findings, null, 2), 'utf-8');
-        res.json({ status: 'success', file: findingsPath });
+        res.json({ status: 'success', persisted: true, file: findingsPath });
     } catch (e) {
-        console.warn(`[Server] Failed to write findings to disk. Falling back to in-memory storage. This is expected in read-only serverless environments like Vercel.`, e);
+        // Expected on read-only serverless filesystems (e.g. Vercel). This in-memory value is
+        // NOT reliably preserved across requests on serverless platforms (no instance affinity),
+        // so callers must not treat this as durable storage — report it as such rather than "success".
+        console.warn(`[Server] Failed to write findings to disk. Falling back to in-memory storage (not durable on serverless platforms).`, e);
         inMemoryFindings = findings;
-        res.json({ status: 'success', storage: 'memory', warning: 'Filesystem is read-only. Findings saved in memory only.' });
+        res.status(202).json({
+            status: 'not_persisted',
+            persisted: false,
+            storage: 'memory',
+            warning: 'Filesystem is read-only and this environment does not guarantee in-memory persistence across requests. Findings were NOT durably saved.'
+        });
     }
 });
 
@@ -297,6 +341,12 @@ app.post('/api/save', (req, res) => {
 // MHTML Static Resource / Sub-resource Proxy
 // ==========================================
 app.get('/serve_mhtml/*', (req, res) => {
+    // The app's own preview <iframe> loads this route same-origin (a deliberate design
+    // choice — see IMPROVEMENTS.md). The blanket X-Frame-Options: DENY set above would
+    // block that same-origin framing entirely, breaking the preview. Relax it to
+    // SAMEORIGIN for this route only; every other response stays DENY.
+    res.setHeader('X-Frame-Options', 'SAMEORIGIN');
+
     const prefix = '/serve_mhtml/';
     const relPath = req.originalUrl.slice(prefix.length);
     

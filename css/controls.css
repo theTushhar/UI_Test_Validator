@@ -69,6 +69,36 @@
   box-shadow: 0 4px 12px oklch(var(--p) / 0.15);
 }
 
+/* Branded gradient wordmark */
+.left-sidebar h1 span {
+  background: var(--brand-gradient);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+}
+
+/* Solid primary CTAs get the brand gradient instead of the flat theme color.
+   Scoped away from .btn-outline so outlined/bordered buttons (e.g. "Manage Workspace
+   Data") keep their transparent, bordered look instead of becoming solid-filled. */
+.btn.btn-primary:not(.btn-outline) {
+  background: var(--brand-gradient);
+  border-color: transparent;
+  color: #fff;
+  transition: all 0.2s ease;
+}
+
+.btn.btn-primary:not(.btn-outline):hover {
+  background: linear-gradient(135deg, #4f46e5 0%, #7c3aed 100%);
+  border-color: transparent;
+  box-shadow: 0 6px 16px oklch(var(--s) / 0.3);
+}
+
+.btn.btn-primary:not(.btn-outline):disabled,
+.btn.btn-primary:not(.btn-outline)[disabled] {
+  background: oklch(var(--bc) / 0.15);
+  color: oklch(var(--bc) / 0.35);
+}
+
 /* Statistics cards */
 .stat-card {
   display: flex;

@@ -71,7 +71,7 @@ class MHTMLArchive {
         }
 
         // Find the boundary defined in the Content-Type header of the file
-        const headerStr = fileBuffer.toString('utf-8', 0, Math.min(fileBuffer.length, 5000));
+        const headerStr = fileBuffer.toString('utf-8', 0, Math.min(fileBuffer.length, 10000));
         const boundaryMatch = headerStr.match(/boundary="?([^"\s;]+)"?/i) || headerStr.match(/boundary=([^\s;]+)/i);
         if (!boundaryMatch) {
             console.log(`[MHTMLParser] Could not find boundary in file: ${filepath}. Treating as plain HTML.`);

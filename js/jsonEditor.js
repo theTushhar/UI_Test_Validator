@@ -1,7 +1,7 @@
 // js/jsonEditor.js - Raw editor, form editor, validation, save-to-DB/disk, toast
 
 import { state } from './state.js';
-import { escapeHtml } from './utils.js';
+import { escapeHtml, showToast } from './utils.js';
 
 export function openJsonEditor() {
     if (state.currentPageIndex < 0 || !state.locatorsConfig.pages || state.locatorsConfig.pages.length === 0) {
@@ -141,13 +141,11 @@ export function renderFormEditor(filterQuery = '') {
 
 export function renderFormElement(el, pageIdx, elIdx) {
     if (!state.isV2) {
-        const preferredLocIdx = el.locators ? el.locators.findIndex(l => l.preferred) : -1;
-
         let html = `
             <div class="form-element-block mb-3 p-3 border border-base-300 rounded-lg bg-base-200" data-page="${pageIdx}" data-el="${elIdx}">
                 <div class="flex items-center justify-between mb-2.5">
                     <strong class="text-sm font-semibold">${escapeHtml(el.name)}</strong>
-                    <span class="text-xs text-base-content/50">${el.type || 'element'} / ${el.mode || 'N/A'}</span>
+                    <span class="text-xs text-base-content/50">${escapeHtml(el.type || 'element')} / ${escapeHtml(el.mode || 'N/A')}</span>
                 </div>
                 <div class="grid grid-cols-2 gap-3">
                     <div class="flex flex-col gap-1">
@@ -203,7 +201,7 @@ export function renderFormElement(el, pageIdx, elIdx) {
         (page.elements || []).forEach(otherEl => {
             if (otherEl.uuid !== el.uuid) {
                 const selectedAttr = (el.parent === otherEl.uuid) ? 'selected' : '';
-                parentOptionsHtml += `<option value="${otherEl.uuid}" ${selectedAttr}>${escapeHtml(otherEl.name)}</option>`;
+                parentOptionsHtml += `<option value="${escapeHtml(otherEl.uuid)}" ${selectedAttr}>${escapeHtml(otherEl.name)}</option>`;
             }
         });
         
@@ -211,7 +209,7 @@ export function renderFormElement(el, pageIdx, elIdx) {
         <div class="form-element-block mb-3 p-3 border border-base-300 rounded-lg bg-base-200" data-page="${pageIdx}" data-el="${elIdx}">
             <div class="flex items-center justify-between mb-2.5">
                 <strong class="text-sm font-semibold">${escapeHtml(el.name)}</strong>
-                <span class="text-xs text-base-content/50">${el.elementType || 'element'} / Event: ${el.event || 'N/A'}</span>
+                <span class="text-xs text-base-content/50">${escapeHtml(el.elementType || 'element')} / Event: ${escapeHtml(el.event || 'N/A')}</span>
             </div>
             <div class="form-grid">
                 <div class="flex flex-col gap-1">
@@ -550,18 +548,6 @@ export function applyConfigToUI(config) {
     window.updateStatsPanel();
     window.renderElementsList();
     window.populateFiltersDropdowns();
-}
-
-export function showToast(message, type = 'info') {
-    const toast = document.getElementById('toast-notification');
-    toast.textContent = message;
-    toast.className = 'toast-notification ' + type;
-    toast.style.display = 'block';
-
-    clearTimeout(toast._timeout);
-    toast._timeout = setTimeout(() => {
-        toast.style.display = 'none';
-    }, 2500);
 }
 
 const textarea = document.getElementById('json-editor-textarea');

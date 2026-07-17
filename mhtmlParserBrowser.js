@@ -322,3 +322,9 @@ function decodeQuotedPrintableToUint8Array(uint8Array) {
     }
     return out.subarray(0, outIdx);
 }
+
+// Exposed for Node-based tests only (see test/mhtmlParser.test.js); has no effect in the
+// browser, where `module` is undefined and this file is loaded as a plain <script>.
+if (typeof module !== 'undefined' && module.exports) {
+    module.exports = { MHTMLArchiveBrowser };
+}

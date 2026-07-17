@@ -1,7 +1,7 @@
 // js/workspaceUpload.js - Upload modal, file parsing, drag-drop, DB persistence
 
 import { state } from './state.js';
-import { escapeJs, escapeHtml, findUniqueFilename, findUniqueLocatorKey, readFileAsText, readFileAsArrayBuffer, logToModalConsole } from './utils.js';
+import { escapeJs, escapeHtml, showToast, readFileAsText, readFileAsArrayBuffer, logToModalConsole } from './utils.js';
 import { initApp } from './state.js';
 
 export async function ensureFreshSession() {
@@ -228,19 +228,6 @@ export function handleUnifiedFilesSelected(e) {
     }
 }
 
-function showToast(message, type = 'success') {
-    const toast = document.getElementById('toast-notification');
-    if (!toast) return;
-    toast.textContent = message;
-    toast.className = 'toast-notification ' + type;
-    toast.style.display = 'block';
-
-    clearTimeout(toast._timeout);
-    toast._timeout = setTimeout(() => {
-        toast.style.display = 'none';
-    }, 3000);
-}
-
 export async function handleUnifiedFiles(files) {
     if (!files || files.length === 0) return;
 
@@ -433,7 +420,7 @@ export async function runAutoMappingCheck() {
         state.mapperConfig = newMapperConfig;
 
         closeUploadModal();
-        showToast("Workspace successfully loaded and auto-mapped!");
+        showToast("Workspace successfully loaded and auto-mapped!", "success");
         await initApp();
     } else {
         logToModalConsole(`Auto-mapping incomplete. ${unmappedCount} pages require manual mapping. Entering mapping mode...`, 'warning');

@@ -1,5 +1,6 @@
 /* Element List - Structural and premium styles for list items */
 .element-item {
+  position: relative;
   display: flex;
   align-items: center;
   gap: 12px;
@@ -20,9 +21,20 @@
 }
 
 .element-item.active {
-  background-color: #e0e7ff;
-  border-color: #818cf8;
-  box-shadow: 0 4px 12px rgba(129, 140, 248, 0.25);
+  background: var(--brand-gradient-soft);
+  border-color: oklch(var(--s) / 0.35);
+  box-shadow: 0 4px 12px oklch(var(--s) / 0.18);
+}
+
+.element-item.active::before {
+  content: "";
+  position: absolute;
+  left: 0;
+  top: 6px;
+  bottom: 6px;
+  width: 3px;
+  border-radius: 0 3px 3px 0;
+  background: var(--brand-gradient);
 }
 
 /* Checkbox alignment */
@@ -156,11 +168,11 @@
 
 /* Active State Overrides */
 .element-item.active .el-name {
-  color: #312e81;
+  color: oklch(var(--s));
 }
 
 .element-item.active .el-type {
-  color: #4338ca;
+  color: oklch(var(--s) / 0.85);
 }
 
 .element-item.active .badge-matched {
@@ -182,42 +194,83 @@
 }
 
 .element-item.active .matches-bubble {
-  background-color: rgba(99, 102, 241, 0.15);
-  color: #4338ca;
-  border-color: rgba(99, 102, 241, 0.25);
+  background-color: oklch(var(--s) / 0.15);
+  color: oklch(var(--s));
+  border-color: oklch(var(--s) / 0.25);
 }
 
 .element-item.active .details-icon-btn {
-  background-color: rgba(99, 102, 241, 0.1);
-  border-color: rgba(99, 102, 241, 0.2);
-  color: #4338ca;
+  background-color: oklch(var(--s) / 0.1);
+  border-color: oklch(var(--s) / 0.2);
+  color: oklch(var(--s));
 }
 
 .element-item.active .details-icon-btn:hover {
-  background-color: #818cf8;
+  background: var(--brand-gradient);
   color: white;
-  border-color: #818cf8;
+  border-color: transparent;
 }
 
-/* Element child connector line */
+/* Element child connector line — nested tree guides (supports grandchildren+) */
 .element-item-child {
-  position: relative;
   transition: all 0.2s ease;
-}
-
-.element-item-child::before {
-  content: "";
-  position: absolute;
-  top: 50%;
-  left: -8px;
-  width: 6px;
-  height: 2px;
-  background-color: oklch(var(--bc) / 0.15);
-  transform: translateY(-50%);
 }
 
 .element-item-child:hover {
   background-color: oklch(var(--bc) / 0.04);
+}
+
+/* One guide column per ancestor level, rendered before the checkbox */
+.tree-guide {
+  position: relative;
+  width: 18px;
+  min-width: 18px;
+  align-self: stretch;
+  flex-shrink: 0;
+}
+
+/* Continuing vertical line: this ancestor still has later siblings below */
+.tree-guide.has-line::before {
+  content: "";
+  position: absolute;
+  top: -3px;
+  bottom: -3px;
+  left: 8px;
+  width: 1.5px;
+  background-color: oklch(var(--bc) / 0.16);
+}
+
+/* The elbow column: connects this item to its direct parent */
+.tree-guide.tree-elbow::before {
+  content: "";
+  position: absolute;
+  top: -3px;
+  height: calc(50% + 3px);
+  left: 8px;
+  width: 1.5px;
+  background-color: oklch(var(--p) / 0.35);
+}
+
+/* If this item has more siblings after it, continue the trunk line downward too */
+.tree-guide.tree-elbow:not(.is-last)::before {
+  height: calc(100% + 6px);
+}
+
+.tree-guide.tree-elbow::after {
+  content: "";
+  position: absolute;
+  top: 50%;
+  left: 8px;
+  width: 8px;
+  height: 1.5px;
+  background-color: oklch(var(--p) / 0.35);
+  transform: translateY(-50%);
+}
+
+.element-item.active .tree-guide.has-line::before,
+.element-item.active .tree-guide.tree-elbow::before,
+.element-item.active .tree-guide.tree-elbow::after {
+  background-color: oklch(var(--p) / 0.55);
 }
 
 /* Muted state for context elements */

@@ -263,6 +263,13 @@ export async function onStepChanged() {
 
         populateFiltersDropdowns();
         window.updateStatsPanel();
+        // Render immediately with the loaded config. The iframe's `onload` handler
+        // (js/iframe.js) will also re-render once it finishes evaluating locators against
+        // the live DOM — but that's a race against this same fetch, and if the iframe
+        // (often just a small local file) finishes loading before this async fetch resolves,
+        // that onload fires too early and skips the render entirely, leaving the sidebar
+        // list stuck empty. Rendering here guarantees the list always appears.
+        window.renderElementsList();
         updateNavButtons();
     } catch(e) {
         console.error("Error loading step locators config from IndexedDB:", e);

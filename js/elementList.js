@@ -165,7 +165,7 @@ export function renderElementsList() {
     
     state.filteredIndices = [];
     
-    function renderItem(item, depth = 0) {
+    function renderItem(item, depth, ancestorGuides, isLast) {
         const idx = item.originalIdx;
         const el = item.el;
         const totalMatches = el.matched_count || 0;
@@ -206,15 +206,18 @@ export function renderElementsList() {
         divItem.className = `element-item ${idx === state.currentElementIndex ? 'active' : ''}`;
         divItem.id = `el-item-${idx}`;
         divItem.onclick = () => selectElement(idx, false, true);
-        
-        // Indent children under parents if V2
-        if (state.isV2 && depth > 0) {
+
+        // Build tree guide columns so nested children (including grandchildren) are
+        // always visually indented under their parent, independent of JSON schema version.
+        let guidesHtml = '';
+        if (depth > 0) {
             divItem.classList.add('element-item-child');
-            divItem.style.marginLeft = `${depth * 16}px`;
-            divItem.style.borderLeft = '2px solid oklch(var(--bc) / 0.2)';
-            divItem.style.paddingLeft = '10px';
+            for (let g = 0; g < depth - 1; g++) {
+                guidesHtml += `<span class="tree-guide ${ancestorGuides[g] ? 'has-line' : ''}"></span>`;
+            }
+            guidesHtml += `<span class="tree-guide tree-elbow ${isLast ? 'is-last' : ''}"></span>`;
         }
-        
+
         // Mute item style if context-only (the item itself does not match filter directly)
         const directlyMatches = matchesFilter.has(idx);
         if (!directlyMatches) {
@@ -224,12 +227,13 @@ export function renderElementsList() {
         
         const isSelected = state.selectedElements.has(idx);
         divItem.innerHTML = `
+            ${guidesHtml}
             <div class="el-select" onclick="event.stopPropagation();">
                 <input type="checkbox" class="el-checkbox" ${isSelected ? 'checked' : ''} onchange="toggleElementSelection(${idx}, this.checked)">
             </div>
             <div class="el-info">
-                <span class="el-name" title="${el.name}">${idx + 1}. ${el.name}</span>
-                <span class="el-type">${el.type || el.elementType || 'element'} <span class="status-badge ${badgeClass}">${badgeText}</span></span>
+                <span class="el-name" title="${escapeHtml(el.name)}">${idx + 1}. ${escapeHtml(el.name)}</span>
+                <span class="el-type">${escapeHtml(el.type || el.elementType || 'element')} <span class="status-badge ${badgeClass}">${badgeText}</span></span>
             </div>
             <div class="el-actions">
                 <div class="el-match-status">
@@ -245,17 +249,19 @@ export function renderElementsList() {
         list.appendChild(divItem);
     }
     
-    function traverse(item, depth = 0) {
-        if (!visibleIndices.has(item.originalIdx)) return;
-        
-        state.filteredIndices.push(item.originalIdx);
-        renderItem(item, depth);
-        
-        const children = childrenMap.get(item.el.uuid) || [];
-        children.forEach(child => traverse(child, depth + 1));
+    function traverse(items, depth, ancestorGuides) {
+        const visibleItems = items.filter(item => visibleIndices.has(item.originalIdx));
+        visibleItems.forEach((item, i) => {
+            const isLast = i === visibleItems.length - 1;
+            state.filteredIndices.push(item.originalIdx);
+            renderItem(item, depth, ancestorGuides, isLast);
+
+            const children = childrenMap.get(item.el.uuid) || [];
+            traverse(children, depth + 1, [...ancestorGuides, !isLast]);
+        });
     }
-    
-    roots.forEach(root => traverse(root, 0));
+
+    traverse(roots, 0, []);
     
     // Update summary banner
     const summary = document.getElementById('filter-results-summary');
@@ -395,7 +401,7 @@ export function selectElement(index, forceOpenModal = false, allowDeselect = fal
     const parentRow = document.getElementById('detail-el-parent-row');
     const parentVal = document.getElementById('detail-el-parent');
     if (parentRow && parentVal) {
-        if (state.isV2 && el.parent) {
+        if (el.parent) {
             const parentEl = elements.find(p => p.uuid === el.parent);
             parentVal.textContent = parentEl ? parentEl.name : el.parent;
             parentVal.title = `UUID: ${el.parent}`;
@@ -428,7 +434,7 @@ export function selectElement(index, forceOpenModal = false, allowDeselect = fal
         
         locBox.innerHTML = `
             <div class="loc-header">
-                <span class="loc-type">${loc.locator_type}</span>
+                <span class="loc-type">${escapeHtml(loc.locator_type)}</span>
                 ${loc.preferred ? '<span class="badge-preferred">★ Preferred</span>' : ''}
             </div>
             <div class="loc-value-box">

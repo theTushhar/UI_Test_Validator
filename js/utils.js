@@ -9,8 +9,31 @@ export function escapeHtml(unsafe) {
          .replace(/'/g, "&#039;");
 }
 
+// Escapes a value for safe embedding inside a single-quoted JS string literal
+// that itself sits inside a double-quoted HTML attribute (the app's
+// onclick="fn('${escapeJs(x)}')" pattern). Must escape backslashes/quotes for
+// JS-string safety AND double quotes for the surrounding HTML attribute, or a
+// value containing a literal `"` can break out of the attribute entirely.
 export function escapeJs(unsafe) {
-    return unsafe.replace(/'/g, "\\'");
+    return String(unsafe)
+         .replace(/\\/g, "\\\\")
+         .replace(/'/g, "\\'")
+         .replace(/"/g, "&quot;")
+         .replace(/\n/g, "\\n")
+         .replace(/\r/g, "\\r");
+}
+
+export function showToast(message, type = 'info') {
+    const toast = document.getElementById('toast-notification');
+    if (!toast) return;
+    toast.textContent = message;
+    toast.className = 'toast-notification ' + type;
+    toast.style.display = 'block';
+
+    clearTimeout(toast._timeout);
+    toast._timeout = setTimeout(() => {
+        toast.style.display = 'none';
+    }, 3000);
 }
 
 export function copyToClipboard(text) {
@@ -75,16 +98,16 @@ export function logToModalConsole(msg, type = 'info') {
 
 export function scrollIntoViewOnlyContainer(elem, container) {
     if (!elem || !container) return;
-    
+
     const elemRect = elem.getBoundingClientRect();
     const containerRect = container.getBoundingClientRect();
-    
+
     const elemTop = elemRect.top - containerRect.top + container.scrollTop;
     const elemBottom = elemTop + elemRect.height;
-    
+
     const containerTop = container.scrollTop;
     const containerBottom = containerTop + container.clientHeight;
-    
+
     if (elemTop < containerTop) {
         container.scrollTo({ top: elemTop, behavior: 'smooth' });
     } else if (elemBottom > containerBottom) {
@@ -95,5 +118,6 @@ export function scrollIntoViewOnlyContainer(elem, container) {
 // Expose to window for onclick handlers in HTML
 window.escapeHtml = escapeHtml;
 window.escapeJs = escapeJs;
+window.showToast = showToast;
 window.copyToClipboard = copyToClipboard;
 window.scrollIntoViewOnlyContainer = scrollIntoViewOnlyContainer;

@@ -9,11 +9,8 @@
               radial-gradient(circle at bottom left, oklch(var(--s) / 0.04), transparent 50%);
 }
 
-.dashboard-backdrop-glow {
-  display: none;
-}
-
 .dashboard-card {
+  position: relative;
   max-width: 680px;
   background: oklch(var(--b1) / 0.85);
   border: 1.5px solid oklch(var(--bc) / 0.08);
@@ -22,6 +19,17 @@
   box-shadow: 0 20px 50px -12px oklch(var(--bc) / 0.15);
   backdrop-filter: blur(16px);
   animation: dashboardFadeIn 0.5s cubic-bezier(0.16, 1, 0.3, 1);
+  overflow: hidden;
+}
+
+.dashboard-card::before {
+  content: "";
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 4px;
+  background: var(--brand-gradient);
 }
 
 @keyframes dashboardFadeIn {
@@ -33,20 +41,6 @@
     opacity: 1;
     transform: translateY(0) scale(1);
   }
-}
-
-/* Quick step number badge */
-.step-num {
-  width: 26px;
-  height: 26px;
-  border-radius: 50%;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-size: 0.75rem;
-  font-weight: 700;
-  flex-shrink: 0;
-  box-shadow: 0 2px 8px oklch(var(--p) / 0.25);
 }
 
 /* Stats card premium overrides */

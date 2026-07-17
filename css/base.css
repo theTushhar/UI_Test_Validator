@@ -1,3 +1,9 @@
+:root {
+  /* Brand gradient — matches the logo mark; reused across CTAs, active states, and accents */
+  --brand-gradient: linear-gradient(135deg, #6366f1 0%, #8b5cf6 100%);
+  --brand-gradient-soft: linear-gradient(135deg, rgba(99, 102, 241, 0.14) 0%, rgba(139, 92, 246, 0.06) 100%);
+}
+
 html,
 body {
   height: 100vh;

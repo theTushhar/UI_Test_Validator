@@ -1,7 +1,7 @@
 // js/inspectMode.js - Inspect mode, hover/click handlers, match from iframe
 
 import { state } from './state.js';
-import { getIframeDocument, findCSSMatches, findXPathMatches } from './iframe.js';
+import { getIframeDocument } from './iframe.js';
 
 export function toggleInspectMode() {
     state.isInspectMode = !state.isInspectMode;

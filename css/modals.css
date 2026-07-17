@@ -44,39 +44,9 @@
   text-align: left;
 }
 
-.modal-left-col {
-  width: 320px;
-  min-width: 320px;
-  display: flex;
-  flex-direction: column;
-  gap: 24px;
-  border-right: 1px solid var(--fallback-bc, oklch(var(--bc) / 0.2));
-  padding-right: 24px;
-}
-
-.modal-right-col {
-  flex: 1;
-  display: flex;
-  flex-direction: column;
-  min-height: 0;
-}
-
-.modal-right-col .locators-list {
-  overflow-y: auto;
-  flex: 1;
-}
-
-.modal-nav-row {
-  display: flex;
-  gap: 12px;
-  margin-top: auto;
-}
+/* .modal-left-col / .modal-right-col layout lives in detail-panel.css (premium overrides) */
 
 /* Confirm modal specifics */
-.confirm-modal-body {
-  text-align: center;
-}
-
 .confirm-modal-list {
   max-height: 160px;
   overflow-y: auto;

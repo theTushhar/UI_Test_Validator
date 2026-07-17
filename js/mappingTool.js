@@ -128,7 +128,7 @@ export function renderMappingInterface() {
         if (p.mappedMhtml) {
             slotContent = `
                 <div class="mapped-mhtml-badge">
-                    <span class="mapped-mhtml-name" title="${p.mappedMhtml}">${p.mappedMhtml}</span>
+                    <span class="mapped-mhtml-name" title="${escapeHtml(p.mappedMhtml)}">${escapeHtml(p.mappedMhtml)}</span>
                     <button class="mapping-unlink-btn" onclick="unlinkMhtml(${idx})" title="Unlink File">&times;</button>
                 </div>
             `;
