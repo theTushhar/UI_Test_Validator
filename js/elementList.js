@@ -2,7 +2,8 @@
 
 import { state } from './state.js';
 import { escapeHtml, escapeJs, scrollIntoViewOnlyContainer } from './utils.js';
-import { highlightElementInIframe, clearHighlightsInIframe } from './iframe.js';
+import { highlightElementInIframe, clearHighlightsInIframe, findCSSMatches, findXPathMatches, getIframeDocument, isElementVisible } from './iframe.js';
+import { getAncestorChain, buildMergedLocator } from './locatorMerge.js';
 
 export function renderEmptyListPlaceholder() {
     const list = document.getElementById('element-list');
@@ -320,12 +321,16 @@ export function filterElementsList() {
 
 export function deselectElement() {
     state.currentElementIndex = -1;
-    
+
+    if (typeof window.closeElementEditForm === 'function') {
+        window.closeElementEditForm();
+    }
+
     const items = document.querySelectorAll('.element-item');
     items.forEach(it => it.classList.remove('active'));
-    
+
     clearHighlightsInIframe();
-    
+
     const detailElName = document.getElementById('detail-el-name');
     if (detailElName) detailElName.textContent = "Component Name";
     const detailElType = document.getElementById('detail-el-type');
@@ -338,41 +343,190 @@ export function deselectElement() {
     if (detailElInteraction) detailElInteraction.textContent = "-";
     const detailElUuid = document.getElementById('detail-el-uuid');
     if (detailElUuid) detailElUuid.textContent = "-";
-    
+
+    const badges = document.getElementById('detail-badges');
+    if (badges) badges.innerHTML = '';
+    const breadcrumb = document.getElementById('detail-breadcrumb');
+    if (breadcrumb) {
+        breadcrumb.innerHTML = '';
+        breadcrumb.style.display = 'none';
+    }
+
     const propSection = document.getElementById('detail-properties-section');
     if (propSection) propSection.style.display = 'none';
     const ddSection = document.getElementById('detail-dropdown-section');
     if (ddSection) ddSection.style.display = 'none';
-    
+
     const locContainer = document.getElementById('detail-locators-container');
     if (locContainer) locContainer.innerHTML = '';
-    
+
     if (state.isModalOpen) {
         window.closeDetailsModal();
     }
-    
+
     updateFloatNavButtons();
     if (typeof window.updateRemoveButtonState === 'function') {
         window.updateRemoveButtonState();
     }
 }
 
+function renderDetailBadges(el) {
+    const badges = document.getElementById('detail-badges');
+    if (!badges) return;
+
+    const type = el.type || el.elementType;
+    let html = '';
+    if (type) {
+        html += `<span class="detail-badge detail-badge-neutral">${escapeHtml(type)}</span>`;
+    }
+    if (el.is_page_load_identifier) {
+        html += `<span class="detail-badge detail-badge-primary" title="This element identifies that the page has finished loading">Page Load ID</span>`;
+    }
+    if (el.locator_unresolved) {
+        html += `<span class="detail-badge detail-badge-warning" title="This locator is flagged as unresolved">&#9888; Unresolved</span>`;
+    }
+    badges.innerHTML = html;
+}
+
+function renderDetailBreadcrumb(el, elements) {
+    const breadcrumb = document.getElementById('detail-breadcrumb');
+    if (!breadcrumb) return;
+
+    const { chain } = getAncestorChain(el, elements);
+    if (chain.length <= 1) {
+        breadcrumb.innerHTML = '';
+        breadcrumb.style.display = 'none';
+        return;
+    }
+
+    const html = chain.map((node, i) => {
+        const isLast = i === chain.length - 1;
+        if (isLast) {
+            return `<strong class="detail-breadcrumb-current">${escapeHtml(node.name)}</strong>`;
+        }
+        const idx = elements.findIndex(e => e.uuid === node.uuid);
+        return `<button class="detail-breadcrumb-link" onclick="selectElement(${idx})" title="Jump to ${escapeHtml(node.name)}">${escapeHtml(node.name)}</button><span class="detail-breadcrumb-sep">&rsaquo;</span>`;
+    }).join('');
+
+    breadcrumb.innerHTML = html;
+    breadcrumb.style.display = 'flex';
+}
+
+// Builds the "N match(es) (Visible/Hidden/M visible)" badge shared by the V1
+// per-locator list and the V2 raw/merged locator cards.
+function matchesIndicatorHtml(matchedCount, visibleCount) {
+    if (!matchedCount) {
+        return `<span class="loc-matches-tag text-error">0 matches</span>`;
+    }
+    if (visibleCount === 0) {
+        return `<span class="loc-matches-tag text-warning">${matchedCount} match(es) (Hidden)</span>`;
+    }
+    if (visibleCount < matchedCount) {
+        return `<span class="loc-matches-tag text-info">${matchedCount} match(es) (${visibleCount} visible)</span>`;
+    }
+    return `<span class="loc-matches-tag ${matchedCount === 1 ? 'text-success' : 'text-info'}">${matchedCount} match(es) (Visible)</span>`;
+}
+
+// Renders the right-column "Locator" section for a V2 element: its own raw
+// (parent-relative) locator, plus — when it has a parent — a computed
+// standalone locator merged from the full ancestor chain (see js/locatorMerge.js).
+function renderV2LocatorSection(el, elements) {
+    const locContainer = document.getElementById('detail-locators-container');
+    const heading = document.getElementById('detail-locators-heading');
+    if (heading) heading.textContent = 'Locator';
+
+    const matchedCount = el.matched_count || 0;
+    const visibleCount = el.visible_count || 0;
+    const matchesIndicator = matchesIndicatorHtml(matchedCount, visibleCount);
+
+    let html = `
+        <div class="locator-item">
+            <div class="loc-header">
+                <span class="loc-type">${escapeHtml(el.locatorType || '')}</span>
+                ${el.parent ? '<span class="badge-preferred">Relative to parent</span>' : ''}
+            </div>
+            <div class="loc-value-box">
+                <span style="font-size: 0.75rem;">${escapeHtml(el.locator || '')}</span>
+                <button class="copy-btn" onclick="copyToClipboard('${escapeJs(el.locator || '')}', this)" title="Copy Selector">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M8 7v8a2 2 0 002 2h6M8 7V5a2 2 0 012-2h4.586A1 1 0 0117 3.414l4 4A1 1 0 0121.586 8V19a2 2 0 01-2 2H10a2 2 0 01-2-2v-2"/></svg>
+                </button>
+            </div>
+            <div class="loc-footer">
+                <span>${el.parent ? 'Only valid within its parent\'s matched element' : 'Document-root locator'}</span>
+                ${matchesIndicator}
+            </div>
+        </div>`;
+
+    if (el.parent) {
+        const result = buildMergedLocator(el, elements);
+        if (result.merged) {
+            // Unlike el.matched_count/visible_count (computed by scoping the raw
+            // locator to its parent's matched node — see evaluateAllLocatorsInIframe
+            // in js/iframe.js), this string is meant to be standalone, so verify it
+            // the same way a pasted-into-DevTools copy would behave: evaluated fresh
+            // against the whole document, unscoped.
+            const doc = getIframeDocument();
+            let mergedMatches = [];
+            if (doc) {
+                const mergedType = (el.locatorType || '').toLowerCase();
+                mergedMatches = mergedType === 'css' ? findCSSMatches(result.value, doc) : findXPathMatches(result.value, doc);
+            }
+            const mergedMatchedCount = mergedMatches.length;
+            const mergedVisibleCount = mergedMatches.filter(isElementVisible).length;
+            const mergedIndicator = matchesIndicatorHtml(mergedMatchedCount, mergedVisibleCount);
+
+            html += `
+                <div class="locator-item merged-locator-item">
+                    <div class="loc-header">
+                        <span class="loc-type">Full Resolved Locator</span>
+                        <span class="badge-preferred">&#x2605; Standalone</span>
+                    </div>
+                    <div class="loc-value-box">
+                        <span style="font-size: 0.75rem;">${escapeHtml(result.value)}</span>
+                        <button class="copy-btn copy-btn-primary" onclick="copyToClipboard('${escapeJs(result.value)}', this)" title="Copy the full, standalone locator">
+                            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M8 7v8a2 2 0 002 2h6M8 7V5a2 2 0 012-2h4.586A1 1 0 0117 3.414l4 4A1 1 0 0121.586 8V19a2 2 0 01-2 2H10a2 2 0 01-2-2v-2"/></svg>
+                            <span>Copy</span>
+                        </button>
+                    </div>
+                    <div class="loc-footer">
+                        <span>Merged from ${result.levels} ancestor level${result.levels === 1 ? '' : 's'} &mdash; usable on its own</span>
+                        ${mergedIndicator}
+                    </div>
+                </div>`;
+        } else {
+            html += `
+                <div class="merged-locator-warning">
+                    &#9888; Can't build a standalone locator: ${escapeHtml(result.error || 'unknown reason')}
+                </div>`;
+        }
+    }
+
+    locContainer.innerHTML = html;
+}
+
 export function selectElement(index, forceOpenModal = false, allowDeselect = false) {
     if (state.currentPageIndex < 0 || !state.locatorsConfig.pages || state.locatorsConfig.pages.length === 0) return;
-    
+
     const page = state.locatorsConfig.pages[state.currentPageIndex];
     const elements = page.elements;
-    
+
     if (index < 0 || index >= elements.length) return;
-    
+
     if (allowDeselect && index === state.currentElementIndex) {
         deselectElement();
         return;
     }
-    
+
+    // Navigating to a (possibly different) element discards any in-progress
+    // single-element edit rather than leaving it pointed at the wrong element.
+    const editView = document.getElementById('element-edit-view');
+    if (editView && editView.style.display !== 'none' && typeof window.closeElementEditForm === 'function') {
+        window.closeElementEditForm();
+    }
+
     const items = document.querySelectorAll('.element-item');
     items.forEach(it => it.classList.remove('active'));
-    
+
     state.currentElementIndex = index;
     const activeItem = document.getElementById(`el-item-${state.currentElementIndex}`);
     if (activeItem) {
@@ -380,28 +534,44 @@ export function selectElement(index, forceOpenModal = false, allowDeselect = fal
         const listContainer = document.getElementById('element-list');
         scrollIntoViewOnlyContainer(activeItem, listContainer);
     }
-    
+
     const el = elements[index];
-    
+
     // Details panel setup
     document.getElementById('detail-el-name').textContent = el.name;
     document.getElementById('detail-el-type').textContent = el.type || el.elementType || 'N/A';
-    document.getElementById('detail-el-mode').textContent = el.mode || 'N/A';
     document.getElementById('detail-el-event').textContent = el.event || 'N/A';
-    
+
+    const modeRow = document.getElementById('detail-el-mode-row');
+    if (modeRow) {
+        modeRow.style.display = state.isV2 ? 'none' : 'flex';
+    }
+    document.getElementById('detail-el-mode').textContent = el.mode || 'N/A';
+
     const detailElInteraction = document.getElementById('detail-el-interaction');
     if (detailElInteraction) {
-        detailElInteraction.textContent = (el.interaction && el.interaction.length > 0) ? el.interaction.join(', ') : 'N/A';
+        if (el.interaction && el.interaction.length > 0) {
+            detailElInteraction.innerHTML = el.interaction.map(i => `<span class="interaction-chip">${escapeHtml(i)}</span>`).join('');
+        } else {
+            detailElInteraction.textContent = 'N/A';
+        }
     }
     const detailElUuid = document.getElementById('detail-el-uuid');
     if (detailElUuid) {
         detailElUuid.textContent = el.uuid || 'N/A';
     }
-    
+
+    renderDetailBadges(el);
+    renderDetailBreadcrumb(el, elements);
+
     const parentRow = document.getElementById('detail-el-parent-row');
     const parentVal = document.getElementById('detail-el-parent');
     if (parentRow && parentVal) {
-        if (el.parent) {
+        // The breadcrumb above already conveys the parent chain for V2; keep this
+        // flat row only as a fallback (e.g. if the chain lookup found nothing to show).
+        const breadcrumb = document.getElementById('detail-breadcrumb');
+        const breadcrumbVisible = breadcrumb && breadcrumb.style.display !== 'none';
+        if (el.parent && !breadcrumbVisible) {
             const parentEl = elements.find(p => p.uuid === el.parent);
             parentVal.textContent = parentEl ? parentEl.name : el.parent;
             parentVal.title = `UUID: ${el.parent}`;
@@ -410,61 +580,60 @@ export function selectElement(index, forceOpenModal = false, allowDeselect = fal
             parentRow.style.display = 'none';
         }
     }
-    
-    // Build locators
-    const locContainer = document.getElementById('detail-locators-container');
-    locContainer.innerHTML = '';
-    
-    el.locators.forEach((loc, lIdx) => {
-        const locBox = document.createElement('div');
-        locBox.className = `locator-item ${loc.preferred ? 'selected-loc' : ''}`;
-        
-        let matchesIndicator = `<span class="loc-matches-tag text-error">0 matches</span>`;
-        if (loc.matched_count > 0) {
-            const visibleCount = loc.visible_count !== undefined ? loc.visible_count : 0;
-            if (visibleCount === 0) {
-                matchesIndicator = `<span class="loc-matches-tag text-warning">${loc.matched_count} match(es) (Hidden)</span>`;
-            } else if (visibleCount < loc.matched_count) {
-                matchesIndicator = `<span class="loc-matches-tag text-info">${loc.matched_count} match(es) (${visibleCount} visible)</span>`;
-            } else {
-                const clr = loc.matched_count === 1 ? 'text-success' : 'text-info';
-                matchesIndicator = `<span class="loc-matches-tag ${clr}">${loc.matched_count} match(es) (Visible)</span>`;
-            }
-        }
-        
-        locBox.innerHTML = `
-            <div class="loc-header">
-                <span class="loc-type">${escapeHtml(loc.locator_type)}</span>
-                ${loc.preferred ? '<span class="badge-preferred">★ Preferred</span>' : ''}
-            </div>
-            <div class="loc-value-box">
-                <span style="font-size: 0.75rem;">${escapeHtml(loc.value)}</span>
-                <button class="copy-btn" onclick="copyToClipboard('${escapeJs(loc.value)}')" title="Copy Selector">
-                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M8 7v8a2 2 0 002 2h6M8 7V5a2 2 0 012-2h4.586A1 1 0 0117 3.414l4 4A1 1 0 0121.586 8V19a2 2 0 01-2 2H10a2 2 0 01-2-2v-2"/></svg>
-                </button>
-            </div>
-            <div class="loc-footer">
-                <span>Score: ${loc.score} | Strategy: ${loc.strategy || 'default'}</span>
-                ${matchesIndicator}
-            </div>
-        `;
-        
-        // Add click interaction to highlight specific locator in iframe
-        locBox.onclick = (e) => {
-            if (e.target.closest('.copy-btn') || e.target.closest('button')) return;
-            
-            // Highlight active locator item card in UI details panel
-            document.querySelectorAll('.locator-item').forEach(li => li.classList.remove('active-locator-card'));
-            locBox.classList.add('active-locator-card');
-            
-            if (typeof window.highlightSpecificLocatorInIframe === 'function') {
-                window.highlightSpecificLocatorInIframe(loc.locator_type, loc.value);
-            }
-        };
-        
-        locContainer.appendChild(locBox);
-    });
-    
+
+    // Build locators (branch on schema version — V2 elements carry a single
+    // parent-relative `locator`/`locatorType`, not a `locators[]` array, and
+    // that array may not even be synthesized yet if the iframe hasn't finished
+    // evaluating — see js/iframe.js evaluateAllLocatorsInIframe).
+    if (state.isV2) {
+        renderV2LocatorSection(el, elements);
+    } else {
+        const heading = document.getElementById('detail-locators-heading');
+        if (heading) heading.textContent = 'Locators in database';
+
+        const locContainer = document.getElementById('detail-locators-container');
+        locContainer.innerHTML = '';
+
+        (el.locators || []).forEach((loc) => {
+            const locBox = document.createElement('div');
+            locBox.className = `locator-item ${loc.preferred ? 'selected-loc' : ''}`;
+
+            const matchesIndicator = matchesIndicatorHtml(loc.matched_count || 0, loc.visible_count !== undefined ? loc.visible_count : 0);
+
+            locBox.innerHTML = `
+                <div class="loc-header">
+                    <span class="loc-type">${escapeHtml(loc.locator_type)}</span>
+                    ${loc.preferred ? '<span class="badge-preferred">★ Preferred</span>' : ''}
+                </div>
+                <div class="loc-value-box">
+                    <span style="font-size: 0.75rem;">${escapeHtml(loc.value)}</span>
+                    <button class="copy-btn" onclick="copyToClipboard('${escapeJs(loc.value)}', this)" title="Copy Selector">
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M8 7v8a2 2 0 002 2h6M8 7V5a2 2 0 012-2h4.586A1 1 0 0117 3.414l4 4A1 1 0 0121.586 8V19a2 2 0 01-2 2H10a2 2 0 01-2-2v-2"/></svg>
+                    </button>
+                </div>
+                <div class="loc-footer">
+                    <span>Score: ${loc.score} | Strategy: ${loc.strategy || 'default'}</span>
+                    ${matchesIndicator}
+                </div>
+            `;
+
+            // Add click interaction to highlight specific locator in iframe
+            locBox.onclick = (e) => {
+                if (e.target.closest('.copy-btn') || e.target.closest('button')) return;
+
+                // Highlight active locator item card in UI details panel
+                document.querySelectorAll('.locator-item').forEach(li => li.classList.remove('active-locator-card'));
+                locBox.classList.add('active-locator-card');
+
+                if (typeof window.highlightSpecificLocatorInIframe === 'function') {
+                    window.highlightSpecificLocatorInIframe(loc.locator_type, loc.value);
+                }
+            };
+
+            locContainer.appendChild(locBox);
+        });
+    }
+
     // Build properties section if properties exist
     const propSection = document.getElementById('detail-properties-section');
     const propContainer = document.getElementById('detail-properties-container');
@@ -480,7 +649,7 @@ export function selectElement(index, forceOpenModal = false, allowDeselect = fal
                     <span class="text-[10px] font-bold uppercase tracking-wider text-base-content/50">${escapeHtml(key)}</span>
                     <div class="flex justify-between items-center gap-2">
                         <code class="text-xs text-secondary font-mono">${escapeHtml(String(val))}</code>
-                        <button class="copy-btn btn btn-xs btn-ghost p-1" onclick="copyToClipboard('${escapeJs(String(val))}')" title="Copy Property">
+                        <button class="copy-btn btn btn-xs btn-ghost p-1" onclick="copyToClipboard('${escapeJs(String(val))}', this)" title="Copy Property">
                             <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M8 7v8a2 2 0 002 2h6M8 7V5a2 2 0 012-2h4.586A1 1 0 0117 3.414l4 4A1 1 0 0121.586 8V19a2 2 0 01-2 2H10a2 2 0 01-2-2v-2"/></svg>
                         </button>
                     </div>
@@ -526,7 +695,7 @@ export function selectElement(index, forceOpenModal = false, allowDeselect = fal
                         </div>
                         <div class="flex justify-between items-center gap-2">
                             <code class="text-xs text-secondary font-mono break-all" style="word-break: break-all;">${escapeHtml(data.value)}</code>
-                            <button class="copy-btn btn btn-xs btn-ghost p-1" onclick="copyToClipboard('${escapeJs(data.value)}')" title="Copy Selector">
+                            <button class="copy-btn btn btn-xs btn-ghost p-1" onclick="copyToClipboard('${escapeJs(data.value)}', this)" title="Copy Selector">
                                 <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M8 7v8a2 2 0 002 2h6M8 7V5a2 2 0 012-2h4.586A1 1 0 0117 3.414l4 4A1 1 0 0121.586 8V19a2 2 0 01-2 2H10a2 2 0 01-2-2v-2"/></svg>
                             </button>
                         </div>
@@ -539,12 +708,12 @@ export function selectElement(index, forceOpenModal = false, allowDeselect = fal
             ddSection.style.display = 'none';
         }
     }
-    
+
     // Show modal if forced or already open
     if (forceOpenModal || state.isModalOpen) {
         window.openDetailsModal();
     }
-    
+
     highlightElementInIframe(el);
     updateFloatNavButtons();
 }

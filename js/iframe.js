@@ -492,10 +492,10 @@ export function highlightElementInIframe(element) {
         matchedElements.forEach(el => {
             el.classList.add('locator-highlight');
         });
-        
+
         matchedElements[0].scrollIntoView({ behavior: 'smooth', block: 'center' });
     }
-    
+
 }
 
 export function findCSSMatches(css, doc) {
@@ -599,23 +599,23 @@ export function clearCacheAndRefresh() {
 export function highlightSpecificLocatorInIframe(locatorType, value) {
     const doc = getIframeDocument();
     if (!doc) return;
-    
+
     clearHighlightsInIframe();
-    
+
     let matchedElements = [];
     const type = (locatorType || '').toLowerCase();
-    
+
     if (type === 'css') {
         matchedElements = findCSSMatches(value, doc);
     } else if (type === 'xpath') {
         matchedElements = findXPathMatches(value, doc);
     }
-    
+
     if (matchedElements.length > 0) {
         matchedElements.forEach(el => {
             el.classList.add('locator-highlight');
         });
-        
+
         // Use smooth scrolling to scroll the element inside the preview iframe into viewport
         matchedElements[0].scrollIntoView({ behavior: 'smooth', block: 'center' });
     }

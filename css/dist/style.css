@@ -4342,6 +4342,43 @@ body {
   transform: scale(1.15);
 }
 
+/* Brief success pulse after a copy succeeds (see js/utils.js copyToClipboard) */
+
+.copy-btn-flash {
+  color: oklch(var(--su)) !important;
+  transform: scale(1.25);
+}
+
+/* Prominent, labeled variant for the merged "Full Resolved Locator" copy
+   action — this is the headline action of that card, so it gets a filled
+   button instead of the plain icon-only ghost style used elsewhere. */
+
+.copy-btn-primary {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  flex-shrink: 0;
+  font-size: 0.72rem;
+  font-weight: 700;
+  padding: 5px 10px;
+  border-radius: 6px;
+  background: oklch(var(--s));
+  color: oklch(var(--sc));
+  transition: all 0.15s ease;
+}
+
+.copy-btn-primary:hover {
+  transform: none;
+  filter: brightness(1.1);
+  color: oklch(var(--sc));
+}
+
+.copy-btn-primary.copy-btn-flash {
+  background: oklch(var(--su));
+  color: oklch(var(--b1));
+  transform: none;
+}
+
 .loc-footer {
   display: flex;
   justify-content: space-between;
@@ -4365,6 +4402,172 @@ kbd {
   font-weight: 600;
   background: oklch(var(--b2));
   border-color: oklch(var(--bc) / 0.15);
+}
+
+/* Ancestor breadcrumb (V2 parent/grandparent chain) shown above the element name */
+
+.detail-breadcrumb {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 4px;
+  font-size: 0.74rem;
+  font-weight: 600;
+  color: oklch(var(--bc) / 0.5);
+}
+
+.detail-breadcrumb-link {
+  background: none;
+  border: none;
+  padding: 0;
+  color: oklch(var(--s));
+  cursor: pointer;
+  font-weight: 700;
+  font-size: inherit;
+}
+
+.detail-breadcrumb-link:hover {
+  text-decoration: underline;
+}
+
+.detail-breadcrumb-sep {
+  color: oklch(var(--bc) / 0.3);
+}
+
+.detail-breadcrumb-current {
+  color: oklch(var(--bc) / 0.75);
+}
+
+/* Small status badges under the element name (type / page-load-identifier / unresolved) */
+
+.detail-badges-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin: -6px 0 2px;
+}
+
+.detail-badge {
+  display: inline-flex;
+  align-items: center;
+  font-size: 0.66rem;
+  font-weight: 750;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  padding: 3px 8px;
+  border-radius: 999px;
+  border: 1px solid transparent;
+}
+
+.detail-badge-neutral {
+  background: oklch(var(--bc) / 0.06);
+  color: oklch(var(--bc) / 0.65);
+  border-color: oklch(var(--bc) / 0.1);
+}
+
+.detail-badge-primary {
+  background: oklch(var(--s) / 0.1);
+  color: oklch(var(--s));
+  border-color: oklch(var(--s) / 0.25);
+}
+
+.detail-badge-warning {
+  background: oklch(var(--wa) / 0.12);
+  color: oklch(var(--wa));
+  border-color: oklch(var(--wa) / 0.3);
+}
+
+/* Interaction chips (Input / Output) */
+
+.detail-chip-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 5px;
+  justify-content: flex-end;
+}
+
+.interaction-chip {
+  font-size: 0.68rem;
+  font-weight: 700;
+  padding: 2px 8px;
+  border-radius: 999px;
+  background: oklch(var(--bc) / 0.06);
+  color: oklch(var(--bc) / 0.65);
+  border: 1px solid oklch(var(--bc) / 0.1);
+}
+
+/* Full Resolved Locator card (merged V2 ancestor chain) — visually distinct from
+   the element's own raw, parent-relative locator card above it */
+
+.merged-locator-item {
+  border-color: oklch(var(--s) / 0.35);
+  background-color: oklch(var(--s) / 0.03);
+}
+
+.merged-locator-item .loc-type {
+  color: oklch(var(--s));
+}
+
+.merged-locator-warning {
+  font-size: 0.76rem;
+  font-weight: 600;
+  color: oklch(var(--wa));
+  background: oklch(var(--wa) / 0.08);
+  border: 1px dashed oklch(var(--wa) / 0.35);
+  border-radius: 8px;
+  padding: 10px 12px;
+  line-height: 1.4;
+}
+
+/* Shared 2-column field grid, used by the whole-config Form Editor
+   (js/jsonEditor.js) and the per-element inline edit form (js/elementEditForm.js) */
+
+.form-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px 14px;
+}
+
+/* Inline single-element edit form */
+
+.element-edit-panel {
+  overflow-y: auto;
+}
+
+.element-edit-form-scroll {
+  max-width: 640px;
+  margin: 0 auto;
+  width: 100%;
+  padding: 4px 2px 24px;
+}
+
+.edit-chip-row {
+  display: flex;
+  gap: 8px;
+}
+
+.edit-chip-toggle {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 0.8rem;
+  font-weight: 600;
+  padding: 6px 12px;
+  border-radius: 999px;
+  border: 1.5px solid oklch(var(--bc) / 0.15);
+  cursor: pointer;
+  transition: all 0.15s ease;
+  color: oklch(var(--bc) / 0.55);
+}
+
+.edit-chip-toggle input {
+  display: none;
+}
+
+.edit-chip-toggle.active {
+  border-color: oklch(var(--s) / 0.5);
+  background: oklch(var(--s) / 0.08);
+  color: oklch(var(--s));
 }
 
 /* Modals - Only structural overrides */
@@ -5198,6 +5401,10 @@ kbd {
   visibility: visible;
 }
 
+.fixed {
+  position: fixed;
+}
+
 .absolute {
   position: absolute;
 }
@@ -5797,6 +6004,11 @@ kbd {
 
 .p-8 {
   padding: 2rem;
+}
+
+.px-1 {
+  padding-left: 0.25rem;
+  padding-right: 0.25rem;
 }
 
 .px-1\.5 {

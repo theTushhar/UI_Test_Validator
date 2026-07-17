@@ -36,11 +36,45 @@ export function showToast(message, type = 'info') {
     }, 3000);
 }
 
-export function copyToClipboard(text) {
-    navigator.clipboard.writeText(text).then(() => {
-        // Successful copy
+// Copies `text` to the clipboard, giving the user visible confirmation (a toast,
+// plus a brief success flash on the triggering `btn`, if passed) rather than
+// silently succeeding/failing — copy buttons throughout the app previously gave
+// no feedback at all, which reads as broken even when the copy worked.
+export function copyToClipboard(text, btn) {
+    const doCopy = () => {
+        if (navigator.clipboard && window.isSecureContext) {
+            return navigator.clipboard.writeText(text);
+        }
+        // Fallback for non-secure contexts (e.g. plain http://) where the
+        // async Clipboard API isn't available.
+        return new Promise((resolve, reject) => {
+            try {
+                const textarea = document.createElement('textarea');
+                textarea.value = text;
+                textarea.style.position = 'fixed';
+                textarea.style.opacity = '0';
+                document.body.appendChild(textarea);
+                textarea.focus();
+                textarea.select();
+                const ok = document.execCommand('copy');
+                document.body.removeChild(textarea);
+                if (ok) resolve(); else reject(new Error('execCommand copy failed'));
+            } catch (err) {
+                reject(err);
+            }
+        });
+    };
+
+    return doCopy().then(() => {
+        showToast('Copied to clipboard', 'success');
+        if (btn) {
+            btn.classList.add('copy-btn-flash');
+            clearTimeout(btn._copyFlashTimeout);
+            btn._copyFlashTimeout = setTimeout(() => btn.classList.remove('copy-btn-flash'), 900);
+        }
     }).catch(err => {
         console.error('Could not copy text: ', err);
+        showToast('Copy failed — clipboard access was denied', 'error');
     });
 }
 

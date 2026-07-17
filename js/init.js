@@ -2,16 +2,18 @@
 
 // Side-effect imports: each module attaches functions to window for HTML onclick handlers
 import './utils.js';
+import './locatorMerge.js';
 import './navigation.js';
 import './iframe.js';
 import './inspectMode.js';
 import './elementDetail.js';
+import './jsonEditor.js';
+import './elementEditForm.js';
 import './elementList.js';
 import './workspaceUpload.js';
 import './mappingTool.js';
 import './bulkActions.js';
 import './welcome.js';
-import './jsonEditor.js';
 
 // Named imports for boot sequence
 import { initApp } from './state.js';

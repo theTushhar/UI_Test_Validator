@@ -336,6 +336,9 @@ export function setupKeyboardShortcuts() {
             navigateSteps(-1);
             e.preventDefault();
         } else if (e.key === 'Escape') {
+            if (typeof window.closeElementEditForm === 'function') {
+                window.closeElementEditForm();
+            }
             window.closeDetailsModal();
             window.closeUploadModal();
             window.closeConfirmRemoveModal();
