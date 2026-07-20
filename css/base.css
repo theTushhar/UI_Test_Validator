@@ -2,6 +2,30 @@
   /* Brand gradient — matches the logo mark; reused across CTAs, active states, and accents */
   --brand-gradient: linear-gradient(135deg, #6366f1 0%, #8b5cf6 100%);
   --brand-gradient-soft: linear-gradient(135deg, rgba(99, 102, 241, 0.14) 0%, rgba(139, 92, 246, 0.06) 100%);
+
+  /*
+   * 5-level elevation system (DESIGN.md "Elevation & Depth"), stacked-shadow
+   * recipe re-tinted with oklch(var(--bc) / alpha) instead of literal black
+   * so it follows the existing DaisyUI base-content color.
+   */
+  --elevation-1: 0 0 0 1px oklch(var(--bc) / 0.08);
+  --elevation-2:
+    0 0 0 1px oklch(var(--bc) / 0.06),
+    0px 1px 1px oklch(var(--bc) / 0.03),
+    0px 2px 4px oklch(var(--bc) / 0.06);
+  --elevation-3:
+    0 0 0 1px oklch(var(--bc) / 0.06),
+    0px 2px 4px oklch(var(--bc) / 0.05),
+    0px 8px 8px -8px oklch(var(--bc) / 0.08);
+  --elevation-4:
+    0 0 0 1px oklch(var(--bc) / 0.06),
+    0px 2px 4px oklch(var(--bc) / 0.06),
+    0px 8px 16px -4px oklch(var(--bc) / 0.10);
+  --elevation-5:
+    0 0 0 1px oklch(var(--bc) / 0.06),
+    0px 1px 2px oklch(var(--bc) / 0.04),
+    0px 8px 16px -4px oklch(var(--bc) / 0.10),
+    0px 24px 32px -8px oklch(var(--bc) / 0.14);
 }
 
 html,

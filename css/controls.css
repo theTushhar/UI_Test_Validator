@@ -61,12 +61,14 @@
 /* Sidebar Header Controls */
 #btn-open-upload {
   font-weight: 600;
-  transition: all 0.2s ease;
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
 }
 
 #btn-open-upload:hover {
   transform: translateY(-1px);
-  box-shadow: 0 4px 12px oklch(var(--p) / 0.15);
+  box-shadow:
+    0px 2px 4px oklch(var(--p) / 0.08),
+    0px 8px 16px -4px oklch(var(--p) / 0.18);
 }
 
 /* Branded gradient wordmark */
@@ -84,13 +86,15 @@
   background: var(--brand-gradient);
   border-color: transparent;
   color: #fff;
-  transition: all 0.2s ease;
+  transition: background 0.2s ease, border-color 0.2s ease, box-shadow 0.2s ease, color 0.2s ease;
 }
 
 .btn.btn-primary:not(.btn-outline):hover {
   background: linear-gradient(135deg, #4f46e5 0%, #7c3aed 100%);
   border-color: transparent;
-  box-shadow: 0 6px 16px oklch(var(--s) / 0.3);
+  box-shadow:
+    0px 2px 4px oklch(var(--s) / 0.12),
+    0px 8px 16px -4px oklch(var(--s) / 0.28);
 }
 
 .btn.btn-primary:not(.btn-outline):disabled,
@@ -109,14 +113,16 @@
   border-radius: 8px;
   border: 1px solid oklch(var(--bc) / 0.08);
   background-color: oklch(var(--b2));
-  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+  transition: transform 0.2s cubic-bezier(0.4, 0, 0.2, 1),
+    background-color 0.2s cubic-bezier(0.4, 0, 0.2, 1),
+    box-shadow 0.2s cubic-bezier(0.4, 0, 0.2, 1);
   cursor: default;
 }
 
 .stat-card:hover {
   transform: translateY(-1px);
   background-color: oklch(var(--b3));
-  box-shadow: 0 4px 10px oklch(var(--bc) / 0.05);
+  box-shadow: var(--elevation-3);
 }
 
 .stat-card.text-success {
@@ -126,7 +132,10 @@
 }
 .stat-card.text-success:hover {
   background-color: oklch(var(--su) / 0.12);
-  box-shadow: 0 4px 10px oklch(var(--su) / 0.1);
+  box-shadow:
+    0 0 0 1px oklch(var(--su) / 0.15),
+    0px 2px 4px oklch(var(--su) / 0.06),
+    0px 8px 8px -8px oklch(var(--su) / 0.12);
 }
 
 .stat-card.text-error {
@@ -136,7 +145,10 @@
 }
 .stat-card.text-error:hover {
   background-color: oklch(var(--er) / 0.12);
-  box-shadow: 0 4px 10px oklch(var(--er) / 0.1);
+  box-shadow:
+    0 0 0 1px oklch(var(--er) / 0.15),
+    0px 2px 4px oklch(var(--er) / 0.06),
+    0px 8px 8px -8px oklch(var(--er) / 0.12);
 }
 
 .stat-card #stat-total,
@@ -163,7 +175,7 @@
   color: oklch(var(--bc));
   border-radius: 6px;
   font-weight: 500;
-  transition: all 0.15s ease-in-out;
+  transition: border-color 0.15s ease-in-out, box-shadow 0.15s ease-in-out;
 }
 
 .left-sidebar select.select:hover,
@@ -206,14 +218,17 @@
   color: oklch(var(--p)) !important;
   border: 1.5px solid oklch(var(--p) / 0.4) !important;
   font-weight: 600 !important;
-  transition: all 0.2s ease-in-out !important;
+  transition: background-color 0.2s ease-in-out, color 0.2s ease-in-out,
+    border-color 0.2s ease-in-out, box-shadow 0.2s ease-in-out !important;
 }
 
 #float-btn-prev:hover, #float-btn-next:hover {
   background-color: oklch(var(--p)) !important;
   color: oklch(var(--pc)) !important;
   border-color: oklch(var(--p)) !important;
-  box-shadow: 0 4px 12px oklch(var(--p) / 0.25) !important;
+  box-shadow:
+    0px 2px 4px oklch(var(--p) / 0.12),
+    0px 8px 16px -4px oklch(var(--p) / 0.25) !important;
 }
 
 #float-btn-prev:disabled, #float-btn-next:disabled {

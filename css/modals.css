@@ -19,7 +19,7 @@
   color: oklch(var(--bc)) !important;
   border: 1px solid oklch(var(--bc) / 0.12) !important;
   border-radius: 16px !important;
-  box-shadow: 0 30px 70px -15px oklch(var(--bc) / 0.25) !important;
+  box-shadow: var(--elevation-5) !important;
 }
 
 .modal-overlay[style*="display: none"] {

@@ -17,7 +17,7 @@
   flex-direction: column;
   gap: 24px;
   border-right: 1.5px solid oklch(var(--bc) / 0.08);
-  padding-right: 28px;
+  padding-right: 24px;
 }
 
 #detail-el-name {
@@ -34,12 +34,12 @@
   background: oklch(var(--b2) / 0.5) !important;
   border: 1.5px solid oklch(var(--bc) / 0.06) !important;
   border-radius: 12px !important;
-  padding: 18px !important;
+  padding: 16px !important;
 }
 
 .modal-left-col .bg-base-200 > div {
-  border-bottom: 1px dashed oklch(var(--bc) / 0.08);
-  padding-bottom: 11px;
+  border-bottom: 1px solid oklch(var(--bc) / 0.08);
+  padding-bottom: 12px;
 }
 
 .modal-left-col .bg-base-200 > div:last-child {
@@ -65,7 +65,9 @@
   display: flex;
   flex-direction: column;
   gap: 10px;
-  transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+  transition: border-color 0.25s cubic-bezier(0.4, 0, 0.2, 1),
+    transform 0.25s cubic-bezier(0.4, 0, 0.2, 1),
+    box-shadow 0.25s cubic-bezier(0.4, 0, 0.2, 1);
   position: relative;
   overflow: hidden;
   box-shadow: 0 2px 8px oklch(var(--bc) / 0.02);
@@ -133,7 +135,7 @@
 
 .copy-btn {
   color: oklch(var(--bc) / 0.4);
-  transition: all 0.2s ease;
+  transition: color 0.2s ease, transform 0.2s ease;
   flex-shrink: 0;
 }
 
@@ -162,7 +164,7 @@
   border-radius: 6px;
   background: oklch(var(--s));
   color: oklch(var(--sc));
-  transition: all 0.15s ease;
+  transition: filter 0.15s ease, color 0.15s ease;
 }
 
 .copy-btn-primary:hover {
@@ -347,7 +349,7 @@ kbd {
   border-radius: 999px;
   border: 1.5px solid oklch(var(--bc) / 0.15);
   cursor: pointer;
-  transition: all 0.15s ease;
+  transition: border-color 0.15s ease, background 0.15s ease, color 0.15s ease;
   color: oklch(var(--bc) / 0.55);
 }
 

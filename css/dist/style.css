@@ -3790,6 +3790,29 @@ input.tab:checked + .tab-content,
   /* Brand gradient — matches the logo mark; reused across CTAs, active states, and accents */
   --brand-gradient: linear-gradient(135deg, #6366f1 0%, #8b5cf6 100%);
   --brand-gradient-soft: linear-gradient(135deg, rgba(99, 102, 241, 0.14) 0%, rgba(139, 92, 246, 0.06) 100%);
+  /*
+   * 5-level elevation system (DESIGN.md "Elevation & Depth"), stacked-shadow
+   * recipe re-tinted with oklch(var(--bc) / alpha) instead of literal black
+   * so it follows the existing DaisyUI base-content color.
+   */
+  --elevation-1: 0 0 0 1px oklch(var(--bc) / 0.08);
+  --elevation-2:
+    0 0 0 1px oklch(var(--bc) / 0.06),
+    0px 1px 1px oklch(var(--bc) / 0.03),
+    0px 2px 4px oklch(var(--bc) / 0.06);
+  --elevation-3:
+    0 0 0 1px oklch(var(--bc) / 0.06),
+    0px 2px 4px oklch(var(--bc) / 0.05),
+    0px 8px 8px -8px oklch(var(--bc) / 0.08);
+  --elevation-4:
+    0 0 0 1px oklch(var(--bc) / 0.06),
+    0px 2px 4px oklch(var(--bc) / 0.06),
+    0px 8px 16px -4px oklch(var(--bc) / 0.10);
+  --elevation-5:
+    0 0 0 1px oklch(var(--bc) / 0.06),
+    0px 1px 2px oklch(var(--bc) / 0.04),
+    0px 8px 16px -4px oklch(var(--bc) / 0.10),
+    0px 24px 32px -8px oklch(var(--bc) / 0.14);
 }
 
 html,
@@ -4213,7 +4236,7 @@ body {
   flex-direction: column;
   gap: 24px;
   border-right: 1.5px solid oklch(var(--bc) / 0.08);
-  padding-right: 28px;
+  padding-right: 24px;
 }
 
 #detail-el-name {
@@ -4231,12 +4254,12 @@ body {
   background: oklch(var(--b2) / 0.5) !important;
   border: 1.5px solid oklch(var(--bc) / 0.06) !important;
   border-radius: 12px !important;
-  padding: 18px !important;
+  padding: 16px !important;
 }
 
 .modal-left-col .bg-base-200 > div {
-  border-bottom: 1px dashed oklch(var(--bc) / 0.08);
-  padding-bottom: 11px;
+  border-bottom: 1px solid oklch(var(--bc) / 0.08);
+  padding-bottom: 12px;
 }
 
 .modal-left-col .bg-base-200 > div:last-child {
@@ -4264,7 +4287,9 @@ body {
   display: flex;
   flex-direction: column;
   gap: 10px;
-  transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+  transition: border-color 0.25s cubic-bezier(0.4, 0, 0.2, 1),
+    transform 0.25s cubic-bezier(0.4, 0, 0.2, 1),
+    box-shadow 0.25s cubic-bezier(0.4, 0, 0.2, 1);
   position: relative;
   overflow: hidden;
   box-shadow: 0 2px 8px oklch(var(--bc) / 0.02);
@@ -4333,7 +4358,7 @@ body {
 
 .copy-btn {
   color: oklch(var(--bc) / 0.4);
-  transition: all 0.2s ease;
+  transition: color 0.2s ease, transform 0.2s ease;
   flex-shrink: 0;
 }
 
@@ -4364,7 +4389,7 @@ body {
   border-radius: 6px;
   background: oklch(var(--s));
   color: oklch(var(--sc));
-  transition: all 0.15s ease;
+  transition: filter 0.15s ease, color 0.15s ease;
 }
 
 .copy-btn-primary:hover {
@@ -4556,7 +4581,7 @@ kbd {
   border-radius: 999px;
   border: 1.5px solid oklch(var(--bc) / 0.15);
   cursor: pointer;
-  transition: all 0.15s ease;
+  transition: border-color 0.15s ease, background 0.15s ease, color 0.15s ease;
   color: oklch(var(--bc) / 0.55);
 }
 
@@ -4593,7 +4618,7 @@ kbd {
   color: oklch(var(--bc)) !important;
   border: 1px solid oklch(var(--bc) / 0.12) !important;
   border-radius: 16px !important;
-  box-shadow: 0 30px 70px -15px oklch(var(--bc) / 0.25) !important;
+  box-shadow: var(--elevation-5) !important;
 }
 
 .modal-overlay[style*="display: none"] {
@@ -4633,7 +4658,7 @@ kbd {
 
 .upload-columns-container {
   display: flex;
-  gap: 20px;
+  gap: 24px;
   margin-bottom: 24px;
 }
 
@@ -4649,7 +4674,10 @@ kbd {
   align-items: center;
   justify-content: center;
   gap: 14px;
-  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  transition: border-color 0.3s cubic-bezier(0.4, 0, 0.2, 1),
+    background-color 0.3s cubic-bezier(0.4, 0, 0.2, 1),
+    transform 0.3s cubic-bezier(0.4, 0, 0.2, 1),
+    box-shadow 0.3s cubic-bezier(0.4, 0, 0.2, 1);
   position: relative;
   overflow: hidden;
 }
@@ -4674,7 +4702,7 @@ kbd {
 
 .upload-col-icon {
   font-size: 2.8rem;
-  transition: all 0.15s cubic-bezier(0.4, 0, 0.2, 1);
+  transition: transform 0.15s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
 .upload-col:hover .upload-col-icon {
@@ -4692,7 +4720,7 @@ kbd {
   padding: 12px;
   height: 120px;
   overflow-y: auto;
-  margin-bottom: 20px;
+  margin-bottom: 24px;
   border: 1px solid rgba(16, 185, 129, 0.2);
   white-space: pre-wrap;
   text-align: left;
@@ -5059,7 +5087,7 @@ kbd {
   border: 1.5px solid oklch(var(--bc) / 0.08);
   border-radius: 20px;
   padding: 48px;
-  box-shadow: 0 20px 50px -12px oklch(var(--bc) / 0.15);
+  box-shadow: var(--elevation-4);
   backdrop-filter: blur(16px);
   animation: dashboardFadeIn 0.5s cubic-bezier(0.16, 1, 0.3, 1);
   overflow: hidden;
@@ -5098,14 +5126,21 @@ kbd {
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  box-shadow: var(--elevation-2);
+  transition: border-color 0.3s cubic-bezier(0.4, 0, 0.2, 1),
+    background 0.3s cubic-bezier(0.4, 0, 0.2, 1),
+    transform 0.3s cubic-bezier(0.4, 0, 0.2, 1),
+    box-shadow 0.3s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
 .stat-card-premium:hover {
   border-color: oklch(var(--p) / 0.4);
   background: oklch(var(--b2));
   transform: translateY(-3px);
-  box-shadow: 0 12px 25px -8px oklch(var(--p) / 0.15);
+  box-shadow:
+    0 0 0 1px oklch(var(--p) / 0.12),
+    0px 2px 4px oklch(var(--p) / 0.10),
+    0px 8px 16px -4px oklch(var(--p) / 0.18);
 }
 
 /* Welcome dropzone styles */
@@ -5113,7 +5148,10 @@ kbd {
 .welcome-dropzone {
   border: 2px dashed oklch(var(--bc) / 0.15);
   background: oklch(var(--b2) / 0.4);
-  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  transition: border-color 0.3s cubic-bezier(0.4, 0, 0.2, 1),
+    background 0.3s cubic-bezier(0.4, 0, 0.2, 1),
+    transform 0.3s cubic-bezier(0.4, 0, 0.2, 1),
+    box-shadow 0.3s cubic-bezier(0.4, 0, 0.2, 1);
   box-shadow: inset 0 2px 4px oklch(var(--bc) / 0.02);
 }
 
@@ -5121,7 +5159,9 @@ kbd {
   border-color: oklch(var(--s) / 0.5);
   background: oklch(var(--b2) / 0.8);
   transform: translateY(-2px);
-  box-shadow: 0 8px 24px -10px oklch(var(--s) / 0.2);
+  box-shadow:
+    0px 2px 4px oklch(var(--s) / 0.08),
+    0px 8px 16px -4px oklch(var(--s) / 0.20);
 }
 
 .welcome-dropzone:active {
@@ -5132,7 +5172,10 @@ kbd {
   border-color: oklch(var(--s));
   background: oklch(var(--s) / 0.08);
   transform: scale(1.01);
-  box-shadow: 0 12px 30px -5px oklch(var(--s) / 0.15);
+  box-shadow:
+    0px 2px 4px oklch(var(--s) / 0.10),
+    0px 8px 16px -4px oklch(var(--s) / 0.15),
+    0px 24px 32px -8px oklch(var(--s) / 0.15);
 }
 
 /* Controls - Only styles that can't be Tailwind utilities */
@@ -5208,12 +5251,14 @@ kbd {
 
 #btn-open-upload {
   font-weight: 600;
-  transition: all 0.2s ease;
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
 }
 
 #btn-open-upload:hover {
   transform: translateY(-1px);
-  box-shadow: 0 4px 12px oklch(var(--p) / 0.15);
+  box-shadow:
+    0px 2px 4px oklch(var(--p) / 0.08),
+    0px 8px 16px -4px oklch(var(--p) / 0.18);
 }
 
 /* Branded gradient wordmark */
@@ -5233,13 +5278,15 @@ kbd {
   background: var(--brand-gradient);
   border-color: transparent;
   color: #fff;
-  transition: all 0.2s ease;
+  transition: background 0.2s ease, border-color 0.2s ease, box-shadow 0.2s ease, color 0.2s ease;
 }
 
 .btn.btn-primary:not(.btn-outline):hover {
   background: linear-gradient(135deg, #4f46e5 0%, #7c3aed 100%);
   border-color: transparent;
-  box-shadow: 0 6px 16px oklch(var(--s) / 0.3);
+  box-shadow:
+    0px 2px 4px oklch(var(--s) / 0.12),
+    0px 8px 16px -4px oklch(var(--s) / 0.28);
 }
 
 .btn.btn-primary:not(.btn-outline):disabled,
@@ -5259,14 +5306,16 @@ kbd {
   border-radius: 8px;
   border: 1px solid oklch(var(--bc) / 0.08);
   background-color: oklch(var(--b2));
-  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+  transition: transform 0.2s cubic-bezier(0.4, 0, 0.2, 1),
+    background-color 0.2s cubic-bezier(0.4, 0, 0.2, 1),
+    box-shadow 0.2s cubic-bezier(0.4, 0, 0.2, 1);
   cursor: default;
 }
 
 .stat-card:hover {
   transform: translateY(-1px);
   background-color: oklch(var(--b3));
-  box-shadow: 0 4px 10px oklch(var(--bc) / 0.05);
+  box-shadow: var(--elevation-3);
 }
 
 .stat-card.text-success {
@@ -5277,7 +5326,10 @@ kbd {
 
 .stat-card.text-success:hover {
   background-color: oklch(var(--su) / 0.12);
-  box-shadow: 0 4px 10px oklch(var(--su) / 0.1);
+  box-shadow:
+    0 0 0 1px oklch(var(--su) / 0.15),
+    0px 2px 4px oklch(var(--su) / 0.06),
+    0px 8px 8px -8px oklch(var(--su) / 0.12);
 }
 
 .stat-card.text-error {
@@ -5288,7 +5340,10 @@ kbd {
 
 .stat-card.text-error:hover {
   background-color: oklch(var(--er) / 0.12);
-  box-shadow: 0 4px 10px oklch(var(--er) / 0.1);
+  box-shadow:
+    0 0 0 1px oklch(var(--er) / 0.15),
+    0px 2px 4px oklch(var(--er) / 0.06),
+    0px 8px 8px -8px oklch(var(--er) / 0.12);
 }
 
 .stat-card #stat-total,
@@ -5318,7 +5373,7 @@ kbd {
   color: oklch(var(--bc));
   border-radius: 6px;
   font-weight: 500;
-  transition: all 0.15s ease-in-out;
+  transition: border-color 0.15s ease-in-out, box-shadow 0.15s ease-in-out;
 }
 
 .left-sidebar select.select:hover,
@@ -5363,14 +5418,17 @@ kbd {
   color: oklch(var(--p)) !important;
   border: 1.5px solid oklch(var(--p) / 0.4) !important;
   font-weight: 600 !important;
-  transition: all 0.2s ease-in-out !important;
+  transition: background-color 0.2s ease-in-out, color 0.2s ease-in-out,
+    border-color 0.2s ease-in-out, box-shadow 0.2s ease-in-out !important;
 }
 
 #float-btn-prev:hover, #float-btn-next:hover {
   background-color: oklch(var(--p)) !important;
   color: oklch(var(--pc)) !important;
   border-color: oklch(var(--p)) !important;
-  box-shadow: 0 4px 12px oklch(var(--p) / 0.25) !important;
+  box-shadow:
+    0px 2px 4px oklch(var(--p) / 0.12),
+    0px 8px 16px -4px oklch(var(--p) / 0.25) !important;
 }
 
 #float-btn-prev:disabled, #float-btn-next:disabled {
@@ -5842,11 +5900,19 @@ kbd {
 }
 
 .rounded-lg {
-  border-radius: 0.5rem;
+  border-radius: 12px;
 }
 
 .rounded-xl {
-  border-radius: 0.75rem;
+  border-radius: 16px;
+}
+
+.rounded-sm {
+  border-radius: 6px;
+}
+
+.rounded-md {
+  border-radius: 8px;
 }
 
 .border {
@@ -6263,15 +6329,21 @@ kbd {
   opacity: 0.35;
 }
 
-.shadow-lg {
-  --tw-shadow: 0 10px 15px -3px rgb(0 0 0 / 0.1), 0 4px 6px -4px rgb(0 0 0 / 0.1);
-  --tw-shadow-colored: 0 10px 15px -3px var(--tw-shadow-color), 0 4px 6px -4px var(--tw-shadow-color);
+.shadow-elevation-1 {
+  --tw-shadow: var(--elevation-1);
+  --tw-shadow-colored: var(--elevation-1);
   box-shadow: var(--tw-ring-offset-shadow, 0 0 #0000), var(--tw-ring-shadow, 0 0 #0000), var(--tw-shadow);
 }
 
-.shadow-sm {
-  --tw-shadow: 0 1px 2px 0 rgb(0 0 0 / 0.05);
-  --tw-shadow-colored: 0 1px 2px 0 var(--tw-shadow-color);
+.shadow-elevation-2 {
+  --tw-shadow: var(--elevation-2);
+  --tw-shadow-colored: var(--elevation-2);
+  box-shadow: var(--tw-ring-offset-shadow, 0 0 #0000), var(--tw-ring-shadow, 0 0 #0000), var(--tw-shadow);
+}
+
+.shadow-elevation-4 {
+  --tw-shadow: var(--elevation-4);
+  --tw-shadow-colored: var(--elevation-4);
   box-shadow: var(--tw-ring-offset-shadow, 0 0 #0000), var(--tw-ring-shadow, 0 0 #0000), var(--tw-shadow);
 }
 
