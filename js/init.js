@@ -2,6 +2,7 @@
 
 // Side-effect imports: each module attaches functions to window for HTML onclick handlers
 import './utils.js';
+import './dialogs.js';
 import './locatorMerge.js';
 import './navigation.js';
 import './iframe.js';
@@ -78,6 +79,11 @@ window.addEventListener('load', async () => {
         const jsonEditorModal = document.getElementById('json-editor-modal');
         if (e.target === jsonEditorModal) {
             window.closeJsonEditor();
+        }
+
+        const appDialogModal = document.getElementById('app-dialog-modal');
+        if (e.target === appDialogModal) {
+            window.dismissAppDialog();
         }
     });
 });

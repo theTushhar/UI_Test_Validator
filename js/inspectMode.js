@@ -2,6 +2,7 @@
 
 import { state } from './state.js';
 import { getIframeDocument } from './iframe.js';
+import { showAppAlert } from './dialogs.js';
 
 export function toggleInspectMode() {
     state.isInspectMode = !state.isInspectMode;
@@ -126,7 +127,7 @@ export function matchElementFromIframe(domElement) {
         current = current.parentElement;
     }
     
-    alert("No matching locator found in the database for the clicked element.");
+    showAppAlert("No matching locator found in the database for the clicked element.", { type: 'warning' });
 }
 
 window.toggleInspectMode = toggleInspectMode;

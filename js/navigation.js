@@ -343,6 +343,7 @@ export function setupKeyboardShortcuts() {
             window.closeUploadModal();
             window.closeConfirmRemoveModal();
             window.closeJsonEditor();
+            window.dismissAppDialog();
             e.preventDefault();
         } else if (e.key === 'e' && (e.ctrlKey || e.metaKey)) {
             e.preventDefault();

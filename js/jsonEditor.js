@@ -2,16 +2,17 @@
 
 import { state } from './state.js';
 import { escapeHtml, showToast } from './utils.js';
+import { showAppAlert, showAppConfirm } from './dialogs.js';
 
 export function openJsonEditor() {
     if (state.currentPageIndex < 0 || !state.locatorsConfig.pages || state.locatorsConfig.pages.length === 0) {
-        alert("No locator configuration loaded. Select a group and step first.");
+        showAppAlert("No locator configuration loaded. Select a group and step first.", { type: 'warning' });
         return;
     }
 
     loadFullLocatorConfig().then(config => {
         if (!config) {
-            alert("No locator configuration found in IndexedDB.");
+            showAppAlert("No locator configuration found in IndexedDB.", { type: 'warning' });
             return;
         }
 
@@ -39,9 +40,10 @@ export function openJsonEditor() {
     });
 }
 
-export function closeJsonEditor() {
+export async function closeJsonEditor() {
     if (state.jsonEditorState.isModified) {
-        if (!confirm("You have unsaved changes. Are you sure you want to close?")) return;
+        const confirmed = await showAppConfirm("You have unsaved changes. Are you sure you want to close?", { title: 'Unsaved Changes', confirmLabel: 'Discard Changes' });
+        if (!confirmed) return;
     }
     document.getElementById('json-editor-modal').style.display = 'none';
     state.jsonEditorState.originalJson = null;
@@ -73,14 +75,14 @@ export function switchEditorView(view) {
     }
 }
 
-export function syncJsonToFormEditor() {
+export async function syncJsonToFormEditor() {
     try {
         const textarea = document.getElementById('json-editor-textarea');
         const config = JSON.parse(textarea.value);
         state.jsonEditorState.fullConfig = config;
         renderFormEditor(state.jsonEditorState.searchQuery || '');
     } catch (e) {
-        alert("Cannot switch to Form Editor: JSON is invalid.\n\nFix the JSON errors first.");
+        await showAppAlert("Cannot switch to Form Editor: JSON is invalid.\n\nFix the JSON errors first.", { title: 'Invalid JSON', type: 'error' });
         switchEditorView('raw');
     }
 }
@@ -346,18 +348,18 @@ export function minifyJsonEditor() {
     }
 }
 
-export function validateJsonEditor() {
+export async function validateJsonEditor() {
     const textarea = document.getElementById('json-editor-textarea');
     const result = validateJsonString(textarea.value);
 
     if (result.valid) {
         textarea.classList.remove('has-error');
         updateJsonEditorStatus('valid', 'Valid JSON');
-        alert("JSON is valid!");
+        await showAppAlert("JSON is valid!", { title: 'Validation', type: 'success' });
     } else {
         textarea.classList.add('has-error');
         updateJsonEditorStatus('invalid', 'Invalid JSON');
-        alert("JSON Error:\n\n" + result.error);
+        await showAppAlert("JSON Error:\n\n" + result.error, { title: 'Validation Failed', type: 'error' });
     }
 }
 
@@ -445,7 +447,7 @@ export async function saveLocatorToDBOnly() {
     const validation = validateJsonString(textarea.value);
 
     if (!validation.valid) {
-        alert("Cannot save: JSON is invalid.\n\n" + validation.error);
+        await showAppAlert("Cannot save: JSON is invalid.\n\n" + validation.error, { title: 'Invalid JSON', type: 'error' });
         return;
     }
 
@@ -474,7 +476,7 @@ export async function saveLocatorToDiskAndDB() {
     const validation = validateJsonString(textarea.value);
 
     if (!validation.valid) {
-        alert("Cannot save: JSON is invalid.\n\n" + validation.error);
+        await showAppAlert("Cannot save: JSON is invalid.\n\n" + validation.error, { title: 'Invalid JSON', type: 'error' });
         return;
     }
 

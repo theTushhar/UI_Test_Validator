@@ -1,48 +1,49 @@
-/* Mapping Tool - Glassmorphism, premium badges and drag-and-drop visuals */
+/* Mapping Tool - Page-to-MHTML pairing surfaces.
+   Flat cards + hairline borders + stacked elevation, matching the
+   DESIGN.md-derived idiom used across the rest of the app (see
+   base.css --elevation-* and elements.css .element-item). No glass/blur,
+   no gradient card fills, no oversized hover transforms. */
+
 .mapping-page-card {
-  background: oklch(var(--b1) / 0.7);
-  border: 1.5px solid oklch(var(--bc) / 0.08);
-  border-radius: 12px;
+  background-color: oklch(var(--b1));
+  border: 1px solid oklch(var(--bc) / 0.08);
+  border-radius: 8px;
   padding: 12px;
   display: flex;
   flex-direction: column;
   gap: 8px;
-  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-  box-shadow: 0 4px 20px -5px oklch(var(--bc) / 0.04);
-  backdrop-filter: blur(10px);
+  box-shadow: var(--elevation-2);
+  transition: border-color 0.2s ease, box-shadow 0.2s ease;
 }
 
 .mapping-page-card:hover {
-  background: oklch(var(--b1) / 0.95);
   border-color: oklch(var(--bc) / 0.15);
-  transform: translateY(-2px);
-  box-shadow: 0 10px 25px -10px oklch(var(--bc) / 0.1);
+  box-shadow: var(--elevation-3);
 }
 
 .mapping-page-card.dragover {
-  border-color: oklch(var(--p)) !important;
-  background-color: oklch(var(--p) / 0.06) !important;
-  box-shadow: 0 0 15px 2px oklch(var(--p) / 0.15) !important;
-  transform: scale(1.02);
+  background: var(--brand-gradient-soft);
+  border-color: oklch(var(--s) / 0.4) !important;
+  box-shadow: var(--elevation-3);
 }
 
 .mapping-drop-slot {
-  border: 1.5px dashed oklch(var(--p) / 0.2);
+  border: 1.5px dashed oklch(var(--bc) / 0.15);
   border-radius: 8px;
   min-height: 42px;
   display: flex;
   align-items: center;
   justify-content: center;
-  background: oklch(var(--p) / 0.01);
+  background: oklch(var(--bc) / 0.02);
   color: oklch(var(--bc) / 0.4);
   font-size: 0.8rem;
   font-weight: 500;
-  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+  transition: border-color 0.2s ease, background-color 0.2s ease, color 0.2s ease;
 }
 
 .mapping-drop-slot:hover {
-  background: oklch(var(--p) / 0.03);
-  border-color: oklch(var(--p) / 0.4);
+  background: oklch(var(--bc) / 0.04);
+  border-color: oklch(var(--bc) / 0.3);
   color: oklch(var(--bc) / 0.6);
 }
 
@@ -51,15 +52,14 @@
   display: flex;
   align-items: center;
   justify-content: space-between;
-  background: linear-gradient(135deg, oklch(var(--su) / 0.08) 0%, oklch(var(--su) / 0.03) 100%);
-  border: 1.5px solid oklch(var(--su) / 0.3);
+  background-color: oklch(var(--su) / 0.08);
+  border: 1px solid oklch(var(--su) / 0.3);
   color: oklch(var(--su));
-  border-radius: 8px;
-  padding: 6px 12px;
+  border-radius: 9999px;
+  padding: 6px 8px 6px 12px;
   font-size: 0.8rem;
   font-weight: 600;
-  box-shadow: 0 2px 8px -2px oklch(var(--su) / 0.15);
-  animation: slideIn 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+  animation: fadeInUp 0.2s ease;
 }
 
 .mapped-mhtml-name {
@@ -72,44 +72,43 @@
 .mapping-unlink-btn {
   background: transparent;
   border: none;
-  font-size: 1.15rem;
+  font-size: 1.1rem;
   font-weight: 700;
   color: oklch(var(--su) / 0.7);
   cursor: pointer;
   padding: 0 4px;
   line-height: 1;
-  transition: all 0.2s ease;
+  border-radius: 9999px;
+  transition: color 0.15s ease, background-color 0.15s ease;
 }
 
 .mapping-unlink-btn:hover {
   color: oklch(var(--su));
-  transform: scale(1.2) rotate(90deg);
+  background-color: oklch(var(--su) / 0.12);
 }
 
 .draggable-mhtml-badge {
   display: flex;
   align-items: center;
   gap: 8px;
-  background: linear-gradient(135deg, oklch(var(--b2) / 0.8) 0%, oklch(var(--b2) / 0.4) 100%);
+  background-color: oklch(var(--bc) / 0.03);
   border: 1px solid oklch(var(--bc) / 0.08);
   border-radius: 8px;
   padding: 8px 12px;
   cursor: grab;
   user-select: none;
-  transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
-  box-shadow: 0 2px 5px -1px oklch(var(--bc) / 0.05);
+  transition: background-color 0.2s ease, border-color 0.2s ease, transform 0.2s ease;
 }
 
 .draggable-mhtml-badge:hover {
-  background: oklch(var(--b2) / 0.95);
-  border-color: oklch(var(--p) / 0.35);
-  transform: translateY(-2px);
-  box-shadow: 0 8px 16px -6px oklch(var(--p) / 0.12);
+  background-color: oklch(var(--bc) / 0.05);
+  border-color: oklch(var(--bc) / 0.15);
+  transform: translateX(2px);
 }
 
 .draggable-mhtml-badge:active {
   cursor: grabbing;
-  transform: scale(0.97) translateY(0);
+  transform: scale(0.98) translateX(0);
 }
 
 .drag-handle {
@@ -128,7 +127,11 @@
   font-weight: 600;
   border-radius: 4px;
   color: oklch(var(--bc) / 0.85);
-  transition: all 0.2s ease;
+  transition: background-color 0.2s ease, border-color 0.2s ease, box-shadow 0.2s ease;
+}
+
+.mhtml-rename-input:hover {
+  background: oklch(var(--bc) / 0.04);
 }
 
 .mhtml-rename-input:focus {
@@ -148,8 +151,12 @@
   font-weight: 700;
   border-radius: 6px;
   color: oklch(var(--bc));
-  transition: all 0.2s ease;
+  transition: background-color 0.2s ease, border-color 0.2s ease, box-shadow 0.2s ease;
   margin-bottom: 4px;
+}
+
+.mapping-page-input:hover {
+  background: oklch(var(--bc) / 0.04);
 }
 
 .mapping-page-input:focus {
@@ -166,7 +173,7 @@
   padding: 4px;
 }
 
-/* Premium Thin Scrollbars */
+/* Thin scrollbars */
 .mapping-scroll-box::-webkit-scrollbar {
   width: 5px;
 }
@@ -184,14 +191,13 @@
   background: oklch(var(--bc) / 0.2);
 }
 
-@keyframes slideIn {
+@keyframes fadeInUp {
   from {
     opacity: 0;
-    transform: translateY(-8px) scale(0.95);
+    transform: translateY(-4px);
   }
   to {
     opacity: 1;
-    transform: translateY(0) scale(1);
+    transform: translateY(0);
   }
 }
-

@@ -122,6 +122,35 @@ export async function findUniqueLocatorKey() {
     return key;
 }
 
+function cleanToken(str) {
+    return str.toLowerCase().replace(/[^a-z0-9]/g, '');
+}
+
+// Finds the single unambiguous MHTML file match for a page name among `availableFiles`
+// (files not already claimed by another page in this batch). Returns null if there is
+// no match, or if more than one file matches equally well — an ambiguous/low-confidence
+// match is treated as "no match" so the page is left for manual mapping instead of
+// risking the wrong file being paired, and so no file ever gets assigned to two pages.
+export function findAutoMapMatch(pageName, availableFiles) {
+    const pageClean = cleanToken(pageName);
+    if (!pageClean) return null;
+
+    const withClean = availableFiles.map(f => {
+        const dotIdx = f.lastIndexOf('.');
+        const base = dotIdx > 0 ? f.substring(0, dotIdx) : f;
+        return { file: f, clean: cleanToken(base) };
+    });
+
+    const exact = withClean.filter(f => f.clean === pageClean);
+    if (exact.length === 1) return exact[0].file;
+    if (exact.length > 1) return null;
+
+    const fuzzy = withClean.filter(f => f.clean.includes(pageClean) || pageClean.includes(f.clean));
+    if (fuzzy.length === 1) return fuzzy[0].file;
+
+    return null;
+}
+
 export function logToModalConsole(msg, type = 'info') {
     const box = document.getElementById('upload-log-box');
     box.style.display = 'block';

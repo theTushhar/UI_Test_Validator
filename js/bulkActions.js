@@ -2,6 +2,7 @@
 
 import { state } from './state.js';
 import { escapeHtml } from './utils.js';
+import { showAppAlert } from './dialogs.js';
 
 export function toggleElementSelection(idx, checked) {
     if (checked) {
@@ -147,7 +148,7 @@ export async function exportLocatorJson() {
         const groupIdx = parseInt(groupSelect.value);
         const group = activeGroups[groupIdx];
         if (!group) {
-            alert("No active test group selected. Cannot export.");
+            await showAppAlert("No active test group selected. Cannot export.", { type: 'warning' });
             return;
         }
 
@@ -155,7 +156,7 @@ export async function exportLocatorJson() {
         const key = `locators||${folder}`;
         let fullConfig = await dbHelper.getConfig(key) || await dbHelper.getConfig('locators||');
         if (!fullConfig || !fullConfig.pages || fullConfig.pages.length === 0) {
-            alert("No locator configuration found to export.");
+            await showAppAlert("No locator configuration found to export.", { type: 'warning' });
             return;
         }
 
@@ -182,7 +183,7 @@ export async function exportLocatorJson() {
         URL.revokeObjectURL(url);
     } catch (e) {
         console.error("Error exporting locator JSON:", e);
-        alert("Failed to export JSON. See console for details.");
+        await showAppAlert("Failed to export JSON. See console for details.", { title: 'Export Failed', type: 'error' });
     }
 }
 

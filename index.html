@@ -12,23 +12,6 @@
     <link rel="stylesheet" href="css/dist/style.css" />
   </head>
   <body>
-    <!-- Global Drag and Drop Overlay -->
-    <div
-      id="global-drag-overlay"
-      class="global-drag-overlay"
-      style="display: none"
-    >
-      <div class="global-drag-content">
-        <div class="text-6xl mb-4 text-white animate-bounce">📥</div>
-        <h2 class="text-2xl font-bold tracking-tight text-white">
-          Drop to Import Workspace
-        </h2>
-        <p class="text-sm text-white/70 mt-1">
-          JSON configuration & MHTML screens
-        </p>
-      </div>
-    </div>
-
     <!-- Hidden Unified File Input -->
     <input
       type="file"
@@ -1007,22 +990,32 @@
               style="display: none"
             ></div>
 
-            <footer class="flex justify-end items-center gap-2">
+            <footer class="flex justify-between items-center gap-2">
               <button
-                id="btn-proceed-mapping"
-                class="btn btn-sm btn-primary"
-                onclick="enterMappingMode()"
-                style="display: none"
+                id="btn-reset-workspace"
+                class="btn btn-sm btn-outline btn-error gap-1.5"
+                onclick="clearAllWorkspaceData()"
+                title="Delete all stored workspace data (configs & files) before starting a new upload"
               >
-                Proceed to Mapping &rarr;
+                &#x1F5D1;&#xFE0F; Reset Workspace
               </button>
-              <button
-                id="btn-close-upload"
-                class="btn btn-sm btn-ghost"
-                onclick="applyAndCloseUploadModal()"
-              >
-                Close
-              </button>
+              <div class="flex items-center gap-2">
+                <button
+                  id="btn-proceed-mapping"
+                  class="btn btn-sm btn-primary"
+                  onclick="enterMappingMode()"
+                  style="display: none"
+                >
+                  Proceed to Mapping &rarr;
+                </button>
+                <button
+                  id="btn-close-upload"
+                  class="btn btn-sm btn-ghost"
+                  onclick="applyAndCloseUploadModal()"
+                >
+                  Close
+                </button>
+              </div>
             </footer>
           </div>
 
@@ -1454,6 +1447,27 @@
       class="toast-notification"
       style="display: none"
     ></div>
+
+    <!-- Generic Alert / Confirm Dialog (replaces window.alert/confirm) -->
+    <div id="app-dialog-modal" class="modal-overlay" style="display: none">
+      <div class="modal-box max-w-md p-0 overflow-hidden">
+        <div class="p-7 pb-4 text-center">
+          <div class="mb-3" id="app-dialog-icon"></div>
+          <h3
+            class="text-lg font-bold text-base-content mb-2"
+            id="app-dialog-title"
+          ></h3>
+          <p
+            class="text-sm text-base-content/70 leading-relaxed whitespace-pre-line"
+            id="app-dialog-message"
+          ></p>
+        </div>
+        <footer
+          class="flex justify-end gap-2.5 px-7 py-4 bg-base-200/50 border-t border-base-300"
+          id="app-dialog-footer"
+        ></footer>
+      </div>
+    </div>
 
     <!-- Include client database & application logic -->
     <script src="db.js"></script>

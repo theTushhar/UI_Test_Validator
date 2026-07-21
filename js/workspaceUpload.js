@@ -1,7 +1,8 @@
 // js/workspaceUpload.js - Upload modal, file parsing, drag-drop, DB persistence
 
 import { state } from './state.js';
-import { escapeJs, escapeHtml, showToast, readFileAsText, readFileAsArrayBuffer, logToModalConsole } from './utils.js';
+import { escapeJs, escapeHtml, showToast, readFileAsText, readFileAsArrayBuffer, logToModalConsole, findAutoMapMatch } from './utils.js';
+import { showAppConfirm } from './dialogs.js';
 import { initApp } from './state.js';
 
 export async function ensureFreshSession() {
@@ -123,7 +124,8 @@ export async function refreshUploadStatusDisplay() {
 }
 
 export async function deleteMhtmlFileRecord(filename) {
-    if (confirm(`Are you sure you want to delete ${filename}?`)) {
+    const confirmed = await showAppConfirm(`Are you sure you want to delete ${filename}?`, { title: 'Delete File', confirmLabel: 'Delete' });
+    if (confirmed) {
         await dbHelper.deleteMhtmlFile(filename);
         let currentBatch = await dbHelper.getConfig('mhtml_batch') || [];
         currentBatch = currentBatch.filter(f => f !== filename);
@@ -134,10 +136,38 @@ export async function deleteMhtmlFileRecord(filename) {
 }
 
 export async function clearAllWorkspaceData() {
-    if (confirm("Are you sure you want to delete all stored workspace data? This will clear all configs and files.")) {
+    const confirmed = await showAppConfirm(
+        "Are you sure you want to delete all stored workspace data? This will clear all configs and files, so you can start a brand new workspace upload from a clean slate.",
+        { title: 'Reset Workspace', confirmLabel: 'Reset Workspace' }
+    );
+    if (confirmed) {
         await dbHelper.clearAllData();
+
+        // The DB is now empty, so the next file drop shouldn't trigger another
+        // (redundant) wipe via ensureFreshSession().
+        state.isSessionFresh = true;
+        state.mappingState = null;
+
+        // Clear file input elements and log so stale selections/messages don't linger
+        const unifiedInput = document.getElementById('unified-file-input');
+        if (unifiedInput) unifiedInput.value = '';
+        const logBox = document.getElementById('upload-log-box');
+        if (logBox) {
+            logBox.style.display = 'none';
+            logBox.textContent = '';
+        }
+
+        // If the mapping view was open, drop back to the plain upload view
+        const uploadView = document.getElementById('upload-mode-view');
+        const mappingView = document.getElementById('mapping-mode-view');
+        if (uploadView) uploadView.style.display = 'block';
+        if (mappingView) mappingView.style.display = 'none';
+        const modalBox = document.getElementById('upload-modal-box');
+        if (modalBox) modalBox.classList.remove('wide-modal');
+
         refreshUploadStatusDisplay();
         await initApp();
+        showToast('Workspace reset. All configs and files were removed.', 'success');
     }
 }
 
@@ -357,28 +387,23 @@ export async function runAutoMappingCheck() {
     const pages = locatorsData.pages || [];
     const mappings = [];
     let unmappedCount = 0;
+    const usedFiles = new Set();
 
     logToModalConsole("Running auto-mapping matching algorithm...", "info");
 
     for (const page of pages) {
         const pageName = page.name;
-        const pageClean = pageName.toLowerCase().replace(/[^a-z0-9]/g, '');
+        const availableFiles = mhtmlList.filter(f => !usedFiles.has(f));
 
-        let match = null;
+        let match = findAutoMapMatch(pageName, availableFiles);
 
-        match = mhtmlList.find(f => {
-            const dotIdx = f.lastIndexOf('.');
-            const base = dotIdx > 0 ? f.substring(0, dotIdx) : f;
-            const fileClean = base.toLowerCase().replace(/[^a-z0-9]/g, '');
-            return fileClean === pageClean || fileClean.includes(pageClean) || pageClean.includes(fileClean);
-        });
-
-        if (!match && pages.length === 1 && mhtmlList.length === 1) {
-            match = mhtmlList[0];
+        if (!match && pages.length === 1 && availableFiles.length === 1) {
+            match = availableFiles[0];
             logToModalConsole(`Heuristics: Mapping single page to single MHTML file: ${match}`, 'info');
         }
 
         if (match) {
+            usedFiles.add(match);
             mappings.push({
                 page_name: pageName,
                 mhtml_file: match
@@ -481,30 +506,15 @@ export function setupDragAndDrop() {
         });
     }
 
-    // Global Viewport Drag and Drop Overlay Logic
-    let dragDepth = 0;
-    window.addEventListener('dragenter', (e) => {
-        e.preventDefault();
-        dragDepth++;
-        const overlay = document.getElementById('global-drag-overlay');
-        if (overlay) overlay.style.display = 'flex';
-    });
-    window.addEventListener('dragleave', (e) => {
-        e.preventDefault();
-        dragDepth--;
-        if (dragDepth === 0) {
-            const overlay = document.getElementById('global-drag-overlay');
-            if (overlay) overlay.style.display = 'none';
-        }
-    });
+    // Prevent the browser's default "navigate to dropped file" behavior anywhere
+    // outside the dedicated dropzones above, and treat such drops as a fallback
+    // unified file upload. No full-screen overlay — the dropzones already show
+    // their own drag feedback.
     window.addEventListener('dragover', (e) => {
         e.preventDefault();
     });
     window.addEventListener('drop', (e) => {
         e.preventDefault();
-        dragDepth = 0;
-        const overlay = document.getElementById('global-drag-overlay');
-        if (overlay) overlay.style.display = 'none';
         const files = e.dataTransfer.files;
         if (files && files.length > 0) {
             handleUnifiedFiles(files);

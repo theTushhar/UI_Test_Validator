@@ -28,8 +28,8 @@
 
 /* Wide modal specifics */
 .wide-modal {
-  width: 90vw;
-  max-width: 1200px;
+  width: 96vw;
+  max-width: 1600px;
   height: 80vh;
   display: flex;
   flex-direction: column;
@@ -51,4 +51,10 @@
   max-height: 160px;
   overflow-y: auto;
   text-align: left;
+}
+
+/* Generic in-app alert/confirm dialog (replaces window.alert/confirm) —
+   always renders above any other open modal regardless of DOM order. */
+#app-dialog-modal {
+  z-index: 2000;
 }

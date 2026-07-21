@@ -1,8 +1,9 @@
 // js/mappingTool.js - Mapping UI, drag-drop, rename, auto-map, save
 
 import { state, initApp } from './state.js';
-import { escapeHtml, escapeJs } from './utils.js';
+import { escapeHtml, escapeJs, findAutoMapMatch } from './utils.js';
 import { refreshUploadStatusDisplay } from './workspaceUpload.js';
+import { showAppAlert } from './dialogs.js';
 
 // ============================================================================
 // Interactive Page Mapping Tool Logic
@@ -19,7 +20,7 @@ export async function enterMappingMode() {
     const locatorsData = await dbHelper.getConfig(`locators||${activeFolder}`);
     
     if (!locatorsData) {
-        alert("No JSON config found. Please upload a JSON config file first.");
+        await showAppAlert("No JSON config found. Please upload a JSON config file first.", { type: 'warning' });
         exitMappingMode();
         return;
     }
@@ -222,28 +223,26 @@ export function renameMhtmlFile(oldName, newName) {
     renderMappingInterface();
 }
 
-export function autoMapBySuffix() {
+export async function autoMapBySuffix() {
     let matchCount = 0;
+    const usedFiles = new Set(state.mappingState.pages.map(p => p.mappedMhtml).filter(Boolean));
+
     state.mappingState.pages.forEach(p => {
         if (!p.mappedMhtml) {
-            const pageClean = p.name.toLowerCase().replace(/[^a-z0-9]/g, '');
-            const match = state.mappingState.mhtmlFiles.find(f => {
-                const dotIdx = f.lastIndexOf('.');
-                const base = dotIdx > 0 ? f.substring(0, dotIdx) : f;
-                const fileClean = base.toLowerCase().replace(/[^a-z0-9]/g, '');
-                return fileClean.includes(pageClean) || pageClean.includes(fileClean);
-            });
+            const availableFiles = state.mappingState.mhtmlFiles.filter(f => !usedFiles.has(f));
+            const match = findAutoMapMatch(p.name, availableFiles);
             if (match) {
                 p.mappedMhtml = match;
+                usedFiles.add(match);
                 matchCount++;
             }
         }
     });
-    
+
     if (matchCount > 0) {
         renderMappingInterface();
     } else {
-        alert("No additional matches were found automatically.");
+        await showAppAlert("No additional matches were found automatically.", { type: 'info' });
     }
 }
 
@@ -316,7 +315,7 @@ export async function saveMappingConfig() {
     await dbHelper.setConfig('mapper', newMapperConfig);
     state.mapperConfig = newMapperConfig;
     
-    alert("Mapping saved! mapper.json has been created and verified.");
+    await showAppAlert("Mapping saved! mapper.json has been created and verified.", { title: 'Success', type: 'success' });
     window.closeUploadModal();
     await initApp();
 }
